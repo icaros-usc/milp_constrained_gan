@@ -16,7 +16,7 @@ from torch.autograd import Variable
 import algos.torch.dcgan.dcgan as dcgan
 import os
 import json
-from util.TrainLevelHelper import get_lvls, get_integer_lvl
+from utils.TrainLevelHelper import get_lvls, get_integer_lvl
 
 os.chdir(".")
 print(os.getcwd())
