@@ -79,6 +79,7 @@ class Program(object):
                     warm_start.add_var_value(self.E1[row * 13 + col], 0)
                     warm_start.add_var_value(self.E2[row * 13 + col], 0)
                     warm_start.add_var_value(self.E3[row * 13 + col], 0)
+        self._model.add_mip_start(warm_start)
 
     def clean_warmstart(self):
         """Remove current warm start solution"""
@@ -87,9 +88,100 @@ class Program(object):
     def set_randomseed(self, seed):
         self._model.parameters.randomseed.set(seed)
 
-    def set_objective(self, parameters):
-        # self._model.maximize()
-        pass
+    def get_objective_params_from_gan_output(self, gan_output):
+        Wc = [0 for _ in range(9 * 13)]
+        Pc = [0 for _ in range(9 * 13)]
+        Kc = [0 for _ in range(9 * 13)]
+        Gc = [0 for _ in range(9 * 13)]
+        E1c = [0 for _ in range(9 * 13)]
+        E2c = [0 for _ in range(9 * 13)]
+        E3c = [0 for _ in range(9 * 13)]
+        Emc = [0 for _ in range(9 * 13)]
+        for row in range(9):
+            for col in range(13):
+                if gan_output[row][col] == 0:
+                    Wc[row * 13 + col] = 1
+                    Pc[row * 13 + col] = 0
+                    Kc[row * 13 + col] = 0
+                    Gc[row * 13 + col] = 0
+                    E1c[row * 13 + col] = 0
+                    E2c[row * 13 + col] = 0
+                    E3c[row * 13 + col] = 0
+                    Emc[row * 13 + col] = 0
+                elif gan_output[row][col] == 1:
+                    Wc[row * 13 + col] = 0
+                    Pc[row * 13 + col] = 0
+                    Kc[row * 13 + col] = 0
+                    Gc[row * 13 + col] = 0
+                    E1c[row * 13 + col] = 0
+                    E2c[row * 13 + col] = 0
+                    E3c[row * 13 + col] = 0
+                    Emc[row * 13 + col] = 1
+                elif gan_output[row][col] == 2:
+                    Wc[row * 13 + col] = 0
+                    Pc[row * 13 + col] = 0
+                    Kc[row * 13 + col] = 1
+                    Gc[row * 13 + col] = 0
+                    E1c[row * 13 + col] = 0
+                    E2c[row * 13 + col] = 0
+                    E3c[row * 13 + col] = 0
+                    Emc[row * 13 + col] = 0
+                elif gan_output[row][col] == 3:
+                    Wc[row * 13 + col] = 0
+                    Pc[row * 13 + col] = 0
+                    Kc[row * 13 + col] = 0
+                    Gc[row * 13 + col] = 1
+                    E1c[row * 13 + col] = 0
+                    E2c[row * 13 + col] = 0
+                    E3c[row * 13 + col] = 0
+                    Emc[row * 13 + col] = 0
+                elif gan_output[row][col] == 4:
+                    Wc[row * 13 + col] = 0
+                    Pc[row * 13 + col] = 0
+                    Kc[row * 13 + col] = 0
+                    Gc[row * 13 + col] = 0
+                    E1c[row * 13 + col] = 1
+                    E2c[row * 13 + col] = 0
+                    E3c[row * 13 + col] = 0
+                    Emc[row * 13 + col] = 0
+                elif gan_output[row][col] == 5:
+                    Wc[row * 13 + col] = 0
+                    Pc[row * 13 + col] = 0
+                    Kc[row * 13 + col] = 0
+                    Gc[row * 13 + col] = 0
+                    E1c[row * 13 + col] = 0
+                    E2c[row * 13 + col] = 1
+                    E3c[row * 13 + col] = 0
+                    Emc[row * 13 + col] = 0
+                elif gan_output[row][col] == 6:
+                    Wc[row * 13 + col] = 0
+                    Pc[row * 13 + col] = 0
+                    Kc[row * 13 + col] = 0
+                    Gc[row * 13 + col] = 0
+                    E1c[row * 13 + col] = 0
+                    E2c[row * 13 + col] = 0
+                    E3c[row * 13 + col] = 1
+                    Emc[row * 13 + col] = 0
+                else:
+                    Wc[row * 13 + col] = 0
+                    Pc[row * 13 + col] = 1
+                    Kc[row * 13 + col] = 0
+                    Gc[row * 13 + col] = 0
+                    E1c[row * 13 + col] = 0
+                    E2c[row * 13 + col] = 0
+                    E3c[row * 13 + col] = 0
+                    Emc[row * 13 + col] = 0
+        return Wc, Pc, Kc, Gc, E1c, E2c, E3c, Emc
+
+    def set_objective(self, Wc, Pc, Kc, Gc, E1c, E2c, E3c, Emc):
+        self._model.maximize(self._model.sum([self.W[i] * Wc[i] for i in range(len(self.W))]) +
+                             self._model.sum([self.P[i] * Pc[i] for i in range(len(self.W))]) +
+                             self._model.sum([self.K[i] * Kc[i] for i in range(len(self.W))]) +
+                             self._model.sum([self.G[i] * Gc[i] for i in range(len(self.W))]) +
+                             self._model.sum([self.E1[i] * E1c[i] for i in range(len(self.W))]) +
+                             self._model.sum([self.E2[i] * E2c[i] for i in range(len(self.W))]) +
+                             self._model.sum([self.E3[i] * E3c[i] for i in range(len(self.W))]) +
+                             self._model.sum([(1 - self.P[i] - self.K[i] - self.G[i] - self.E1[i] - self.E2[i] - self.E3[i] - self.W[i]) * Emc[i] for i in range(len(self.W))]))
 
     def solve(self):
         return self._model.solve()

@@ -5,8 +5,8 @@ from PIL import Image
 from tqdm import tqdm
 
 
-dataroot = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'fake_milp_gan_no_obj')
-output_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'visual_milp_gan_no_obj')
+dataroot = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'fake_milp_gan_obj')
+output_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'visual_milp_gan_obj')
 
 if not os.path.exists(output_path):
     """If there is no such a folder."""

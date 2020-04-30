@@ -15,7 +15,7 @@ seed = 999
 random.seed(seed)
 torch.manual_seed(seed)
 
-output_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'fake_milp_gan_no_obj')
+output_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'fake_milp_gan_obj')
 os.makedirs(output_path, exist_ok=True)
 
 program = Program()
@@ -62,9 +62,8 @@ with torch.no_grad():
 
         # then we use milp to fix the level
         # We first need to form the solution
-        program.clean_warmstart()
-        program.add_gan_output(im[0].tolist())
-
+        Wc, Pc, Kc, Gc, E1c, E2c, E3c, Emc = program.get_objective_params_from_gan_output(im[0].tolist())
+        program.set_objective(Wc, Pc, Kc, Gc, E1c, E2c, E3c, Emc)
         si = program.solve()
         new_grid = vars2grid(si)
 
