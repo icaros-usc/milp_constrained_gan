@@ -13,9 +13,8 @@ import torch.optim as optim
 import torch.utils.data
 from torch.autograd import Variable
 
-import GANTrain.models.dcgan as dcgan
+import algos.torch.dcgan.dcgan as dcgan
 import os
-import GANTrain.GetLevel as GetLevel
 import json
 from util.TrainLevelHelper import get_lvls, get_integer_lvl
 

@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import tqdm
 
-import GANTrain.models.dcgan as dcgan
+import algos.torch.dcgan.dcgan as dcgan
 
 seed = 999
 random.seed(seed)
