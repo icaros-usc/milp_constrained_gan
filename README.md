@@ -1,1 +1,9 @@
-# milp_constrained_gan
+# Combining Optimization with Learning for Procedural Content Generation
+
+We study three scenarios:
+
+- Use MILP solver to generate more training data
+
+- Use MILP solver to fix the generated levels 
+
+- Use Mipaal in the GAN
