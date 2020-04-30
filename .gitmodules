@@ -1,0 +1,3 @@
+[submodule "GVGAI"]
+	path = GVGAI
+	url = https://github.com/GAIGResearch/GVGAI.git
