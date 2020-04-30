@@ -17,7 +17,7 @@ import utils.GetLevel as GetLevel
 import json
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--nz', type=int, default=32, help='size of the latent z vector')
+parser.add_argument('--nz', type=int, default=32, help='size of the latent z vector')  # the input to the generator networks
 parser.add_argument('--ngf', type=int, default=64)
 parser.add_argument('--ndf', type=int, default=64)
 parser.add_argument('--batchSize', type=int, default=32, help='input batch size')
@@ -90,7 +90,7 @@ print("Batch size is " + str(opt.batchSize))
 print("SHAPE ", X.shape)
 X_onehot = np.eye(z_dims, dtype='uint8')[X]
 
-X_onehot = np.rollaxis(X_onehot, 3, 1)
+X_onehot = np.rollaxis(X_onehot, 3, 1)  # why do you need to roll axis
 # print("SHAPE ", X_onehot.shape)
 
 X_train = np.zeros((X.shape[0], z_dims, map_size, map_size)) * 2
