@@ -3,7 +3,6 @@ import os
 import random
 
 from tqdm import tqdm
-import docplex.mp.params.cplex_params as parameters
 
 from algos.milp.program import Program
 
@@ -11,6 +10,7 @@ output_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', '
 os.makedirs(output_path, exist_ok=True)
 
 program = Program()
+
 
 def vars2grid(si):
     grid = [[1 for _ in range(13)] for _ in range(9)]
