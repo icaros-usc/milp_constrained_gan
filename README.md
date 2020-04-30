@@ -13,3 +13,4 @@ Acknowledgement: We thank our colleagues from ITU university for creating the or
 Instructions
 - Clone the repo
 - git submodule init update
+- pip install -r requirements.txt
