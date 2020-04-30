@@ -7,3 +7,5 @@ We study three scenarios:
 - Use MILP solver to fix the generated levels 
 
 - Use Mipaal in the GAN
+
+Acknowledgement: We thank our colleagues from ITU university for creating the original levels.
