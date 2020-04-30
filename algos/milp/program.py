@@ -10,6 +10,80 @@ class Program(object):
         self._build_program()
         self._model.print_information()
 
+    def add_gan_output(self, gan_output):
+        """Use this function to add a wart start solution from gan's output"""
+        warm_start = self._model.new_solution()
+        for row in range(9):
+            for col in range(13):
+                if gan_output[row][col] == 0:
+                    warm_start.add_var_value(self.W[row * 13 + col], 1)
+                    warm_start.add_var_value(self.P[row * 13 + col], 0)
+                    warm_start.add_var_value(self.K[row * 13 + col], 0)
+                    warm_start.add_var_value(self.G[row * 13 + col], 0)
+                    warm_start.add_var_value(self.E1[row * 13 + col], 0)
+                    warm_start.add_var_value(self.E2[row * 13 + col], 0)
+                    warm_start.add_var_value(self.E3[row * 13 + col], 0)
+                elif gan_output[row][col] == 1:
+                    warm_start.add_var_value(self.W[row * 13 + col], 0)
+                    warm_start.add_var_value(self.P[row * 13 + col], 0)
+                    warm_start.add_var_value(self.K[row * 13 + col], 0)
+                    warm_start.add_var_value(self.G[row * 13 + col], 0)
+                    warm_start.add_var_value(self.E1[row * 13 + col], 0)
+                    warm_start.add_var_value(self.E2[row * 13 + col], 0)
+                    warm_start.add_var_value(self.E3[row * 13 + col], 0)
+                elif gan_output[row][col] == 2:
+                    warm_start.add_var_value(self.W[row * 13 + col], 0)
+                    warm_start.add_var_value(self.P[row * 13 + col], 0)
+                    warm_start.add_var_value(self.K[row * 13 + col], 1)
+                    warm_start.add_var_value(self.G[row * 13 + col], 0)
+                    warm_start.add_var_value(self.E1[row * 13 + col], 0)
+                    warm_start.add_var_value(self.E2[row * 13 + col], 0)
+                    warm_start.add_var_value(self.E3[row * 13 + col], 0)
+                elif gan_output[row][col] == 3:
+                    warm_start.add_var_value(self.W[row * 13 + col], 0)
+                    warm_start.add_var_value(self.P[row * 13 + col], 0)
+                    warm_start.add_var_value(self.K[row * 13 + col], 0)
+                    warm_start.add_var_value(self.G[row * 13 + col], 1)
+                    warm_start.add_var_value(self.E1[row * 13 + col], 0)
+                    warm_start.add_var_value(self.E2[row * 13 + col], 0)
+                    warm_start.add_var_value(self.E3[row * 13 + col], 0)
+                elif gan_output[row][col] == 4:
+                    warm_start.add_var_value(self.W[row * 13 + col], 0)
+                    warm_start.add_var_value(self.P[row * 13 + col], 0)
+                    warm_start.add_var_value(self.K[row * 13 + col], 0)
+                    warm_start.add_var_value(self.G[row * 13 + col], 0)
+                    warm_start.add_var_value(self.E1[row * 13 + col], 1)
+                    warm_start.add_var_value(self.E2[row * 13 + col], 0)
+                    warm_start.add_var_value(self.E3[row * 13 + col], 0)
+                elif gan_output[row][col] == 5:
+                    warm_start.add_var_value(self.W[row * 13 + col], 0)
+                    warm_start.add_var_value(self.P[row * 13 + col], 0)
+                    warm_start.add_var_value(self.K[row * 13 + col], 0)
+                    warm_start.add_var_value(self.G[row * 13 + col], 0)
+                    warm_start.add_var_value(self.E1[row * 13 + col], 0)
+                    warm_start.add_var_value(self.E2[row * 13 + col], 1)
+                    warm_start.add_var_value(self.E3[row * 13 + col], 0)
+                elif gan_output[row][col] == 6:
+                    warm_start.add_var_value(self.W[row * 13 + col], 0)
+                    warm_start.add_var_value(self.P[row * 13 + col], 0)
+                    warm_start.add_var_value(self.K[row * 13 + col], 0)
+                    warm_start.add_var_value(self.G[row * 13 + col], 0)
+                    warm_start.add_var_value(self.E1[row * 13 + col], 0)
+                    warm_start.add_var_value(self.E2[row * 13 + col], 0)
+                    warm_start.add_var_value(self.E3[row * 13 + col], 1)
+                else:
+                    warm_start.add_var_value(self.W[row * 13 + col], 0)
+                    warm_start.add_var_value(self.P[row * 13 + col], 1)
+                    warm_start.add_var_value(self.K[row * 13 + col], 0)
+                    warm_start.add_var_value(self.G[row * 13 + col], 0)
+                    warm_start.add_var_value(self.E1[row * 13 + col], 0)
+                    warm_start.add_var_value(self.E2[row * 13 + col], 0)
+                    warm_start.add_var_value(self.E3[row * 13 + col], 0)
+
+    def clean_warmstart(self):
+        """Remove current warm start solution"""
+        self._model.clear_mip_starts()
+
     def set_randomseed(self, seed):
         self._model.parameters.randomseed.set(seed)
 

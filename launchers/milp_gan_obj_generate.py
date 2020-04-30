@@ -1,3 +1,5 @@
+"""We want to see if we can design some objective function to use gan's output as a guide for milp solver"""
+
 import json
 import os
 import random
