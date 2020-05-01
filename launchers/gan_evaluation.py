@@ -92,6 +92,7 @@ def evaluate(lvl):
 
 num_levels = 0
 num_valid_levels = 0
+all_valid_lvs = []
 for lvl in os.listdir(dataroot):
     num_levels += 1
     with open(os.path.join(dataroot, lvl), 'r') as f:
@@ -99,7 +100,29 @@ for lvl in os.listdir(dataroot):
         if_valid = evaluate(lvlJson)
 
         if if_valid:
+            all_valid_lvs.append(lvlJson)
             print(lvl)
             num_valid_levels += 1
 
+
+def compute_duplicated_lvls(lvl_lst):
+    num_duplicated = 0
+    unique_lvls = []
+    for lvl in lvl_lst:
+        if_duplicated = False
+        for unique_lvl in unique_lvls:
+            if unique_lvl == lvl:
+                if_duplicated = True
+                break
+        if if_duplicated:
+            num_duplicated += 1
+        else:
+            unique_lvls.append(lvl)
+    return num_duplicated
+
+
+num_duplicated = compute_duplicated_lvls(all_valid_lvs)
+
+
 print('Valid levels: {} / {}'.format(num_valid_levels, num_levels))
+print('Duplicated valid levels: {} / {}'.format(num_duplicated, num_valid_levels))
