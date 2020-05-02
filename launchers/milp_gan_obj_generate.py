@@ -3,6 +3,7 @@
 import json
 import os
 import random
+import time
 
 import numpy as np
 import torch
@@ -51,9 +52,11 @@ def vars2grid(si):
     return grid
 
 
+total_time = 0
+num_iter = 100
 with torch.no_grad():
     netG.eval()
-    for i in tqdm.tqdm(range(15000)):
+    for i in tqdm.tqdm(range(num_iter)):
         # first we use gan to generate the level
         fixed_noise = torch.FloatTensor(1, 32, 1, 1).normal_(0, 1).to(device)
         output = netG(fixed_noise)
@@ -63,9 +66,15 @@ with torch.no_grad():
         # then we use milp to fix the level
         # We first need to form the solution
         Wc, Pc, Kc, Gc, E1c, E2c, E3c, Emc = program.get_objective_params_from_gan_output(im[0].tolist())
+        start_time = time.time()
         program.set_objective(Wc, Pc, Kc, Gc, E1c, E2c, E3c, Emc)
+        end_time = time.time()
+        total_time += end_time - start_time
         si = program.solve()
         new_grid = vars2grid(si)
 
         with open(os.path.join(output_path, '{}.json'.format(i)), 'w') as f:
             f.write(json.dumps(new_grid))
+
+average_time = total_time / num_iter
+print('average time for running the solver: {}'.format(average_time))

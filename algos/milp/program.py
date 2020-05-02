@@ -245,49 +245,21 @@ class Program(object):
                 add_new_var(xin, 'x{}{}'.format(1, i))
                 add_new_var(xout, 'x{}{}'.format(i, 13))
                 add_new_var(xout, 'x{}{}'.format(i, 1))
-                # if len(self._model.find_matching_vars('x{}{}'.format(13, i))) == 0:
-                #     xin.append(self._model.integer_var(name='x{}{}'.format(13, i), ub=1))
-                # else:
-                #     xin.append(self._model.find_matching_vars('x{}{}'.format(13, i))[0])
-                # if len(self._model.find_matching_vars()) == 0:
-                #     xout.append(self._model.integer_var(name='x{}{}'.format(i, 1), ub=1))
-                # else:
-                #     xout.append(self._model.find_matching_vars('x{}{}'.format(i, 1))[0])
-                # if len(self._model.find_matching_vars('x{}{}'.format(i, 13))) == 0:
-                #     xout.append(self._model.integer_var(name='x{}{}'.format(i, 13), ub=1))
-                # else:
-                #     xout.append(self._model.find_matching_vars('x{}{}'.format(i, 13))[0])
             elif i == 12:
                 add_new_var(xin, 'x{}{}'.format(11, i))
                 add_new_var(xin, 'x{}{}'.format(25, i))
                 add_new_var(xout, 'x{}{}'.format(i, 11))
                 add_new_var(xout, 'x{}{}'.format(i, 25))
-                # if len(self._model.find_matching_vars('x{}{}'.format(11, i))) == 0:
-                #     xin.append(self._model.integer_var(name='x{}{}'.format(11, i), ub=1))
-                # else:
-                #     xin.append(self._model.find_matching_vars('x{}{}'.format(11, i))[0])
-                #
-                # xin.append(self._model.integer_var(name='x{}{}'.format(25, i), ub=1))
-                # xout.append(self._model.integer_var(name='x{}{}'.format(i, 11), ub=1))
-                # xout.append(self._model.integer_var(name='x{}{}'.format(i, 25), ub=1))
             elif i == 116:
                 add_new_var(xin, 'x{}{}'.format(115, i))
                 add_new_var(xin, 'x{}{}'.format(103, i))
                 add_new_var(xout, 'x{}{}'.format(i, 115))
                 add_new_var(xout, 'x{}{}'.format(i, 103))
-                # xin.append(self._model.integer_var(name='x{}{}'.format(115, i), ub=1))
-                # xin.append(self._model.integer_var(name='x{}{}'.format(103, i), ub=1))
-                # xout.append(self._model.integer_var(name='x{}{}'.format(i, 115), ub=1))
-                # xout.append(self._model.integer_var(name='x{}{}'.format(i, 103), ub=1))
             elif i == 104:
                 add_new_var(xin, 'x{}{}'.format(105, i))
                 add_new_var(xin, 'x{}{}'.format(91, i))
                 add_new_var(xout, 'x{}{}'.format(i, 105))
                 add_new_var(xout, 'x{}{}'.format(i, 91))
-                # xin.append(self._model.integer_var(name='x{}{}'.format(105, i), ub=1))
-                # xin.append(self._model.integer_var(name='x{}{}'.format(91, i), ub=1))
-                # xout.append(self._model.integer_var(name='x{}{}'.format(i, 105), ub=1))
-                # xout.append(self._model.integer_var(name='x{}{}'.format(i, 91), ub=1))
             elif 0 < i < 12:
                 add_new_var(xin, 'x{}{}'.format(i - 1, i))
                 add_new_var(xin, 'x{}{}'.format(i + 1, i))
@@ -295,12 +267,6 @@ class Program(object):
                 add_new_var(xout, 'x{}{}'.format(i, i - 1))
                 add_new_var(xout, 'x{}{}'.format(i, i + 1))
                 add_new_var(xout, 'x{}{}'.format(i, i + 13))
-                # xin.append(self._model.integer_var(name='x{}{}'.format(i - 1, i), ub=1))
-                # xin.append(self._model.integer_var(name='x{}{}'.format(i + 1, i), ub=1))
-                # xin.append(self._model.integer_var(name='x{}{}'.format(i + 13, i), ub=1))
-                # xout.append(self._model.integer_var(name='x{}{}'.format(i, i - 1), ub=1))
-                # xout.append(self._model.integer_var(name='x{}{}'.format(i, i + 1), ub=1))
-                # xout.append(self._model.integer_var(name='x{}{}'.format(i, i + 13), ub=1))
             elif 104 < i < 116:
                 add_new_var(xin, 'x{}{}'.format(i - 1, i))
                 add_new_var(xin, 'x{}{}'.format(i + 1, i))
