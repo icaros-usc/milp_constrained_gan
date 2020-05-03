@@ -425,7 +425,7 @@ class Program(object):
             self._model.add_constraint(self._model.sum(Yout[i]) + self.W[i] <= 1)
         # 7 there must be at least one enemy
         for i in range(N):
-            self._model.add_constraint(self._model.sum(self.E1 + self.E2 + self.E3) == 1)
+            self._model.add_constraint(self._model.sum(self.E1 + self.E2 + self.E3) >= 1)
 
 
 if __name__ == '__main__':
