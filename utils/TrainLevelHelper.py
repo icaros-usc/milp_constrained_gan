@@ -5,7 +5,7 @@ import numpy as np
 
 def get_lvls(folder):
     lvls = []
-    files = sorted([f for f in os.listdir(folder) if 'lvl' in f])
+    files = sorted([f for f in os.listdir(folder)], key=lambda x: int(x.split('.')[0]))
     for f in files:
         f = open(os.path.join(folder, f))
         lvl = f.readlines()
