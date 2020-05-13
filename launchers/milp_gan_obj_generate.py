@@ -9,7 +9,7 @@ import numpy as np
 import torch
 import tqdm
 
-from algos.milp.program import Program
+from algos.milp.zelda.program import Program
 import algos.torch.dcgan.dcgan as dcgan
 
 seed = 999

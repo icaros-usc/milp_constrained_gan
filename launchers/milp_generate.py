@@ -4,7 +4,7 @@ import random
 
 from tqdm import tqdm
 
-from algos.milp.program import Program
+from algos.milp.zelda.program import Program
 
 output_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'fake_milp')
 os.makedirs(output_path, exist_ok=True)
