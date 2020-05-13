@@ -1,0 +1,14 @@
+{
+    "method": "mipaal_full",
+    "learning_rate": 5e-2,
+    "num_epochs": 10000,
+    "seed": 6174,
+    "dropout": 0.5,
+    "layer_sizes": [100],
+    "batch_size": 64,
+    "patience": 20,
+    "gomory_limit": -1,
+    "test_timing": true,
+    "test_cuts_generated": true,
+    "test_integrality": true
+}

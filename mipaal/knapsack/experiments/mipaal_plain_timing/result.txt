@@ -1,0 +1,24 @@
+=====================================================
+finished
+exp knapsack/experiments/mipaal_plain_timing/
+total time: 6655.745406389236
+time no eval: 6320.489142656326
+num epochs: 31
+best validation: 506.34613833849943
+best epoch: 11
+=====================================================
+avg_mip_timing 0.15987565672422815
+total_mip_timing 2419.8779401779175
+avg_backprop_timing 0.013004386762105889
+total_backprop_timing 196.83439803123474
+avg_cuts_generated 96.0
+std_cuts_generated 0.0
+=====================================================
+train_corr 0.5235104010339027
+val_corr 0.5739405688798165
+train_mse 7102541.0
+val_corr 6263356.5
+train_mip_mean 591.3092597332363
+val_mip_mean 504.16404987286916
+train_mip_std 192.69679080613977
+val_mip_std 212.55486250679647

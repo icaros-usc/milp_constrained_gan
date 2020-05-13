@@ -1,0 +1,24 @@
+=====================================================
+finished
+exp knapsack/experiments/hybrid_loss_timing
+total time: 7522.896001338959
+time no eval: 7149.666583538055
+num epochs: 35
+best validation: 505.6814547671547
+best epoch: 15
+=====================================================
+avg_mip_timing 0.1627030552399671
+total_mip_timing 2770.5076246261597
+avg_backprop_timing 0.012727719434752049
+total_backprop_timing 216.72760653495789
+avg_cuts_generated 96.0
+std_cuts_generated 0.0
+=====================================================
+train_corr 0.6129392356660164
+val_corr 0.6084667297567458
+train_mse 39522.633
+val_corr 38204.418
+train_mip_mean 588.8166170583971
+val_mip_mean 500.9229105454457
+train_mip_std 192.44723565625753
+val_mip_std 212.6862735196852

@@ -1,0 +1,27 @@
+=====================================================
+finished
+exp knapsack/experiments/warm_start_infeasibility
+total time: 3975.3721294403076
+time no eval: 3815.4549634456635
+num epochs: 20
+best validation: 501.61139140551603
+best epoch: 0
+=====================================================
+avg_mip_timing 0.13628756434706465
+total_mip_timing 1353.7443766593933
+avg_backprop_timing 0.013595944647221098
+total_backprop_timing 135.04851818084717
+percent_same 1.0
+percent_integer 1.0
+avg_difference 0.0
+avg_cuts_generated 96.0
+std_cuts_generated 0.0
+=====================================================
+train_corr 0.553479891739159
+val_corr 0.5930361996667586
+train_mse 514142.4
+val_corr 465179.7
+train_mip_mean 590.9196615723173
+val_mip_mean 499.7381002691728
+train_mip_std 191.93835280286078
+val_mip_std 212.98180127301345

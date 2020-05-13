@@ -1,0 +1,24 @@
+=====================================================
+finished
+exp knapsack/experiments/hybrid_loss_infeasibility
+total time: 7609.639803647995
+time no eval: 7253.867912530899
+num epochs: 35
+best validation: 505.6814547671547
+best epoch: 15
+=====================================================
+avg_mip_timing 0.1609689898969199
+total_mip_timing 2740.979959964752
+avg_backprop_timing 0.012819755152970489
+total_backprop_timing 218.2947907447815
+avg_cuts_generated 96.0
+std_cuts_generated 0.0
+=====================================================
+train_corr 0.6129392356660164
+val_corr 0.6084667297567458
+train_mse 39522.633
+val_corr 38204.418
+train_mip_mean 588.8166170583971
+val_mip_mean 500.9229105454457
+train_mip_std 192.44723565625753
+val_mip_std 212.6862735196852

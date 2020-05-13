@@ -1,0 +1,17 @@
+=====================================================
+finished
+exp knapsack/experiments/two_stage_initial_timing/
+total time: 729.8115508556366
+time no eval: 86.94039964675903
+num epochs: 88
+best validation: 679.08453
+best epoch: 68
+=====================================================
+train_corr 0.6748305268921055
+val_corr 0.6485327710458887
+train_mse 690.84863
+val_corr 683.7776
+train_mip_mean 589.520993464593
+val_mip_mean 501.317847119102
+train_mip_std 191.1644941062458
+val_mip_std 207.09107518811885
