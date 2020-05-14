@@ -5,6 +5,7 @@ import json
 import math
 import os
 import random
+import shutil
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,11 +13,18 @@ import torch.backends.cudnn as cudnn
 import torch.optim as optim
 import torch.utils.data
 from torch.autograd import Variable
+import torch
 
 import algos.torch.dcgan.dcgan as dcgan
 import os
 import json
+from torch.utils.tensorboard import SummaryWriter
 from utils.TrainLevelHelper import get_lvls, get_integer_lvl
+from algos.milp.zelda.program import Program
+from mipaal.utils import cplex_utils, experiment_utils
+from mipaal.mip_solvers import MIPFunction
+import sympy
+from algos.milp.zelda.utils import mip_sol_to_gan_out, gan_out_2_coefs
 
 os.chdir(".")
 print(os.getcwd())
@@ -25,7 +33,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--nz', type=int, default=32, help='size of the latent z vector')
 parser.add_argument('--ngf', type=int, default=64)
 parser.add_argument('--ndf', type=int, default=64)
-parser.add_argument('--batchSize', type=int, default=50, help='input batch size')
+parser.add_argument('--batchSize', type=int, default=1, help='input batch size')
 parser.add_argument('--niter', type=int, default=25000, help='number of epochs to train for')
 parser.add_argument('--lrD', type=float, default=0.00005, help='learning rate for Critic, default=0.00005')
 parser.add_argument('--lrG', type=float, default=0.00005, help='learning rate for Generator, default=0.00005')
@@ -47,6 +55,30 @@ parser.add_argument('--seed', type=int, default=999, help='random seed for repro
 opt = parser.parse_args()
 # print(opt)
 
+# now we need to setup mipfunction
+experiment_dir = os.path.join(os.path.dirname(__file__), 'milp_gan_end_2_end_experiment')
+param_file = os.path.join(experiment_dir, 'params.json')
+params = experiment_utils.Params(param_file)
+shutil.rmtree(os.path.join(experiment_dir, 'runs'), ignore_errors=True)
+writer = SummaryWriter(log_dir=os.path.join(experiment_dir, 'runs'))
+models_dir = os.path.join(experiment_dir, 'models')
+os.makedirs(models_dir, exist_ok=True)
+# Step 1. We translate our cplex model to matrices
+milp_program = Program()
+cpx = milp_program.get_cplex_prob()  # get the cplex problem from the docplex model
+cpx.cleanup(epsilon=0.0001)
+c, G, h, A, b, var_type = cplex_utils.cplex_to_matrices(cpx)
+# _, inds = sympy.Matrix(A).T.rref()
+# A = A[np.array(inds)]
+# b = b[np.array(inds)]
+
+G = torch.from_numpy(G)
+h = torch.from_numpy(h)
+A = torch.from_numpy(A)
+b = torch.from_numpy(b)
+Q = 1e-6 * torch.eye(A.shape[1])
+Q = Q.type_as(G)
+
 if opt.experiment is None:
     opt.experiment = 'samples'
 if not os.path.exists(opt.experiment):
@@ -58,6 +90,7 @@ torch.manual_seed(opt.seed)
 
 cudnn.benchmark = True
 
+opt.cuda = False
 if torch.cuda.is_available() and not opt.cuda:
     print("WARNING: You have a CUDA device, so you should probably run with --cuda")
 
@@ -256,7 +289,17 @@ for epoch in range(opt.niter):
         noisev = Variable(noise)
         fake = netG(noisev)
         # here we will plug in the mipfunction
-        # TODO
+        # Step 2. construct coefficients from the output of the netG
+        pred_coefs = gan_out_2_coefs(fake, c.size)
+        mip_function = MIPFunction(var_type, G, h, A, b, verbose=0,
+                                   input_mps=os.path.join(experiment_dir, 'gomory_prob.mps'),
+                                   gomory_limit=params.gomory_limit,
+                                   test_timing=params.test_timing,
+                                   test_integrality=params.test_integrality,
+                                   test_cuts_generated=params.test_cuts_generated)
+        x = mip_function(Q, pred_coefs, G, h, A, b)
+        mip_sol_to_gan_out(fake, x)
+
         errG = netD(fake)
         errG.backward(one)
         optimizerG.step()

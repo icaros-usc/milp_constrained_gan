@@ -10,6 +10,9 @@ class Program(object):
         self._build_program()
         self._model.print_information()
 
+    def get_cplex_prob(self):
+        return self._model.get_cplex()
+
     def add_gan_output(self, gan_output):
         """Use this function to add a wart start solution from gan's output"""
         warm_start = self._model.new_solution()
@@ -181,7 +184,8 @@ class Program(object):
                              self._model.sum([self.E1[i] * E1c[i] for i in range(len(self.W))]) +
                              self._model.sum([self.E2[i] * E2c[i] for i in range(len(self.W))]) +
                              self._model.sum([self.E3[i] * E3c[i] for i in range(len(self.W))]) +
-                             self._model.sum([(1 - self.P[i] - self.K[i] - self.G[i] - self.E1[i] - self.E2[i] - self.E3[i] - self.W[i]) * Emc[i] for i in range(len(self.W))]))
+                             self._model.sum([(1 - self.P[i] - self.K[i] - self.G[i] - self.E1[i] - self.E2[i] -
+                                               self.E3[i] - self.W[i]) * Emc[i] for i in range(len(self.W))]))
 
     def solve(self):
         return self._model.solve()
@@ -190,22 +194,23 @@ class Program(object):
         """Use this function to build the model."""
         N = self._grid_width * self._grid_height
         # First define variables
+        # these variables are defined in the same order as in the index2str json file
         # wall indicator variables, w_i in {0, 1}
         self.W = []
         for i in range(N):
             self.W.append(self._model.integer_var(name='w_{}'.format(i), ub=1))
-        # door indicator variables, g_i in {0, 1}
-        self.G = []
+        # empty space variables, em_i in {0, 1}
+        self.Em = []
         for i in range(N):
-            self.G.append(self._model.integer_var(name='g_{}'.format(i), ub=1))
+            self.Em.append(self._model.integer_var(name='em_{}'.format(i), ub=1))
         # key indicator variables, k_i in {0, 1}
         self.K = []
         for i in range(N):
             self.K.append(self._model.integer_var(name='k_{}'.format(i), ub=1))
-        # player indicator variables, p_i in {0, 1}
-        self.P = []
+        # door indicator variables, g_i in {0, 1}
+        self.G = []
         for i in range(N):
-            self.P.append(self._model.integer_var(name='p_{}'.format(i), ub=1))
+            self.G.append(self._model.integer_var(name='g_{}'.format(i), ub=1))
         # enemy 1 indicator variables, e1_i in {0, 1}
         self.E1 = []
         for i in range(N):
@@ -218,6 +223,10 @@ class Program(object):
         self.E3 = []
         for i in range(N):
             self.E3.append(self._model.integer_var(name='e3_{}'.format(i), ub=1))
+        # player indicator variables, p_i in {0, 1}
+        self.P = []
+        for i in range(N):
+            self.P.append(self._model.integer_var(name='p_{}'.format(i), ub=1))
         # X graph try to encode that the palyer should be able to reach the key
         # 1. super source node to every node inside
         Xs = []
@@ -227,6 +236,7 @@ class Program(object):
         Xt = []
         for i in range(N):
             Xt.append(self._model.integer_var(name='x{}t'.format(i), ub=1))
+
         # 3. internal node how much in how much out
 
         def add_new_var(arry: list, id: str):
@@ -288,7 +298,7 @@ class Program(object):
                 add_new_var(xout, 'x{}{}'.format(i, i - 13))
                 add_new_var(xout, 'x{}{}'.format(i, i + 13))
                 add_new_var(xout, 'x{}{}'.format(i, i - 1))
-            else: # for internal nodes of internal nodes
+            else:  # for internal nodes of internal nodes
                 add_new_var(xin, 'x{}{}'.format(i - 13, i))
                 add_new_var(xin, 'x{}{}'.format(i + 13, i))
                 add_new_var(xin, 'x{}{}'.format(i - 1, i))
@@ -362,7 +372,7 @@ class Program(object):
                 add_new_var(yout, 'y{}{}'.format(i, i - 13))
                 add_new_var(yout, 'y{}{}'.format(i, i + 13))
                 add_new_var(yout, 'y{}{}'.format(i, i - 1))
-            else: # for internal nodes of internal nodes
+            else:  # for internal nodes of internal nodes
                 add_new_var(yin, 'y{}{}'.format(i - 13, i))
                 add_new_var(yin, 'y{}{}'.format(i + 13, i))
                 add_new_var(yin, 'y{}{}'.format(i - 1, i))
@@ -377,7 +387,8 @@ class Program(object):
         # now define constraints
         # 1. for every tile there could be one type or empty
         for i in range(N):
-            self._model.add_constraint(self.W[i] + self.G[i] + self.K[i] + self.P[i] + self.E1[i] + self.E2[i] + self.E3[i] <= 1)
+            self._model.add_constraint(
+                self.W[i] + self.G[i] + self.K[i] + self.P[i] + self.E1[i] + self.E2[i] + self.E3[i] + self.Em[i] == 1)
         # 2. in one grid, there could be only one goal, player, key
         self._model.add_constraint(self._model.sum(self.G) == 1)
         self._model.add_constraint(self._model.sum(self.K) == 1)
@@ -388,8 +399,7 @@ class Program(object):
         self._model.add_constraint(self._model.sum([self.W[i * 13] for i in range(9)]) == 9)
         self._model.add_constraint(self._model.sum([self.W[i * 13 + 12] for i in range(9)]) == 9)
         # 4. The number of enemies should be less than 0.6 percent of empty space
-        self._model.add_constraint((N - self._model.sum(self.W) - self._model.sum(self.G) - self._model.sum(self.K) - self._model.sum(self.P) - self._model.sum(self.E1) -
-                                    self._model.sum(self.E2) - self._model.sum(self.E3)) * 0.6 >=
+        self._model.add_constraint(self._model.sum(self.Em) * 0.6 >=
                                    self._model.sum(self.E1) + self._model.sum(self.E2) + self._model.sum(self.E3))
         # 5. the player should be able to reach the key, X graph
         # 5.1 super source will only go into player node
