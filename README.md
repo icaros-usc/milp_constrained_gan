@@ -8,7 +8,7 @@ We study three scenarios:
 
 - Use Mipaal in the GAN
 
-Acknowledgement: We thank our colleagues from ITU university for creating the original levels.
+Acknowledgement: We thank our colleagues from ITU university for creating the original levels. We thank Aaron Ferber for proving [MIPaal](https://arxiv.org/abs/1907.05912) code.
 
 Instructions
 - Clone the repo
