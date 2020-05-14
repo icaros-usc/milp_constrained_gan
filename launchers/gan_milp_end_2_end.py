@@ -302,6 +302,7 @@ for epoch in range(opt.niter):
 
         errG = netD(fake)
         errG.backward(one)
+        mip_function.release()
         optimizerG.step()
         gen_iterations += 1
 
