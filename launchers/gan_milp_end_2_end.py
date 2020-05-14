@@ -76,7 +76,7 @@ G = torch.from_numpy(G)
 h = torch.from_numpy(h)
 A = torch.from_numpy(A)
 b = torch.from_numpy(b)
-Q = 1e-6 * torch.eye(A.shape[1])
+Q = 1e-5 * torch.eye(A.shape[1])
 Q = Q.type_as(G)
 
 if opt.experiment is None:
