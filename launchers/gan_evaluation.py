@@ -7,7 +7,7 @@ import numpy as np
 
 from algos.astar import search
 
-dataroot = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'fake_milp_gan_obj')
+dataroot = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'fake_milp_gan_end_2_end')
 
 
 def evaluate(lvl):
@@ -118,11 +118,12 @@ def compute_duplicated_lvls(lvl_lst):
             num_duplicated += 1
         else:
             unique_lvls.append(lvl)
-    return num_duplicated
+    return num_duplicated, unique_lvls
 
 
-num_duplicated = compute_duplicated_lvls(all_valid_lvs)
+num_duplicated, unique_lvls = compute_duplicated_lvls(all_valid_lvs)
 
 
 print('Valid levels: {} / {}'.format(num_valid_levels, num_levels))
 print('Duplicated valid levels: {} / {}'.format(num_duplicated, num_valid_levels))
+print('Unique and playable levles: {} / {}'.format(len(unique_lvls), num_levels))

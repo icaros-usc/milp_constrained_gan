@@ -4,28 +4,55 @@ import json
 import os
 import random
 import time
+import shutil
 
 import numpy as np
 import torch
 import tqdm
+from torch.utils.tensorboard import SummaryWriter
 
 from algos.milp.zelda.program import Program
+from mipaal.utils import cplex_utils, experiment_utils
+from mipaal.mip_solvers import MIPFunction
 import algos.torch.dcgan.dcgan as dcgan
 
 seed = 999
 random.seed(seed)
 torch.manual_seed(seed)
 
-output_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'fake_milp_gan_obj')
+output_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'fake_milp_gan_end_2_end')
 os.makedirs(output_path, exist_ok=True)
 
 program = Program()
+# now we need to setup mipfunction
+experiment_dir = os.path.join(os.path.dirname(__file__), 'milp_gan_end_2_end_experiment')
+param_file = os.path.join(experiment_dir, 'params.json')
+params = experiment_utils.Params(param_file)
+shutil.rmtree(os.path.join(experiment_dir, 'runs'), ignore_errors=True)
+writer = SummaryWriter(log_dir=os.path.join(experiment_dir, 'runs'))
+models_dir = os.path.join(experiment_dir, 'models')
+os.makedirs(models_dir, exist_ok=True)
+# Step 1. We translate our cplex model to matrices
+milp_program = Program()
+cpx = milp_program.get_cplex_prob()  # get the cplex problem from the docplex model
+cpx.cleanup(epsilon=0.0001)
+c, G, h, A, b, var_type = cplex_utils.cplex_to_matrices(cpx)
+# _, inds = sympy.Matrix(A).T.rref()
+# A = A[np.array(inds)]
+# b = b[np.array(inds)]
+
+G = torch.from_numpy(G)
+h = torch.from_numpy(h)
+A = torch.from_numpy(A)
+b = torch.from_numpy(b)
+Q = 1e-5 * torch.eye(A.shape[1])
+Q = Q.type_as(G)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 netG = dcgan.DCGAN_G(32, 32, 8, 64, 1, 0)
 
-netG_checkpoint = os.path.join(os.path.dirname(__file__), 'samples', 'netG_epoch_23999_999.pth')
+netG_checkpoint = os.path.join(os.path.dirname(__file__), 'samples', 'netG_epoch_369_999.pth')
 netG.load_state_dict(torch.load(netG_checkpoint))
 netG.to(device)
 

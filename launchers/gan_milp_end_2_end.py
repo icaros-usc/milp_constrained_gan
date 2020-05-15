@@ -6,6 +6,7 @@ import math
 import os
 import random
 import shutil
+import time
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -221,6 +222,8 @@ for epoch in range(opt.niter):
     X_train = X_train[torch.randperm(len(X_train))]
 
     i = 0
+    total_time = 0
+    num_running = 0
     while i < num_batches:  # len(dataloader):
         ############################
         # (1) Update D network
@@ -297,7 +300,11 @@ for epoch in range(opt.niter):
                                    test_timing=params.test_timing,
                                    test_integrality=params.test_integrality,
                                    test_cuts_generated=params.test_cuts_generated)
+        start_time = time.time()
         x = mip_function(Q, pred_coefs, G, h, A, b)
+        end_time = time.time()
+        total_time += end_time - start_time
+        num_running += 1
         mip_sol_to_gan_out(fake, x)
 
         errG = netD(fake)
@@ -310,8 +317,19 @@ for epoch in range(opt.niter):
               % (epoch, opt.niter, i, num_batches, gen_iterations,
                  errD.data[0], errG.data[0], errD_real.data[0], errD_fake.data[0]))
 
-    if epoch % 1000 == 999 or epoch == opt.niter - 1:  # was 500
+    print('average time for running the mip_function: {}'.format(total_time / num_running))
+    if epoch % 10 == 9 or epoch == opt.niter - 1:  # was 500
         fake = netG(Variable(fixed_noise, volatile=True))
+        pred_coefs = gan_out_2_coefs(fake, c.size)
+        mip_function = MIPFunction(var_type, G, h, A, b, verbose=0,
+                                   input_mps=os.path.join(experiment_dir, 'gomory_prob.mps'),
+                                   gomory_limit=params.gomory_limit,
+                                   test_timing=params.test_timing,
+                                   test_integrality=params.test_integrality,
+                                   test_cuts_generated=params.test_cuts_generated)
+        x = mip_function(Q, pred_coefs, G, h, A, b)
+        mip_sol_to_gan_out(fake, x)
+        mip_function.release()
         im = fake.data[:, :, :9, :13].cpu().numpy()
         im = np.argmax(im, axis=1)
 
