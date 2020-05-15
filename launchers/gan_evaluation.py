@@ -7,7 +7,7 @@ import numpy as np
 
 from algos.astar import search
 
-dataroot = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'fake_milp_gan_end_2_end')
+dataroot = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'fake')
 
 
 def evaluate(lvl):
