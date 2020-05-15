@@ -85,8 +85,8 @@ def evaluate(lvl):
         return False
 
     # the level at least has one enemy
-    if num_enemy1 + num_enemy2 + num_enemy3 == 0:
-        return False
+    #if num_enemy1 + num_enemy2 + num_enemy3 == 0:
+    #    return False
 
     return True
 
