@@ -7,7 +7,7 @@ import numpy as np
 
 from algos.astar import search
 
-dataroot = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'fake_milp_gan_obj')
+dataroot = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'mip_gan_obj')
 
 
 def evaluate(lvl):
@@ -85,8 +85,8 @@ def evaluate(lvl):
         return False
 
     # the level at least has one enemy
-    if num_enemy1 + num_enemy2 + num_enemy3 == 0:
-        return False
+    #if num_enemy1 + num_enemy2 + num_enemy3 == 0:
+    #    return False
 
     return True
 
@@ -103,6 +103,9 @@ for lvl in os.listdir(dataroot):
             all_valid_lvs.append(lvlJson)
             print(lvl)
             num_valid_levels += 1
+        else: 
+            from IPython import embed
+            embed()
 
 
 def compute_duplicated_lvls(lvl_lst):

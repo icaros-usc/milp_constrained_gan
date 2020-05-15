@@ -138,6 +138,79 @@ def add_edit_distance(mdl, graph, objects, add_movement=True):
 
     mdl.minimize(mdl.sum(costs))
 
+
+
+def get_mip_program():
+        #from IPython import embed
+    #embed()
+    n =  9
+    m = 13
+   
+    deltas = [(1,0), (0,1), (-1,0), (0,-1)]
+
+    # Build an adjacency list for the dynamics of Zelda
+    n_nodes = n * m
+    adj = [[] for i in range(n_nodes)]
+    border_nodes = []
+    for i in range(n_nodes):
+        cur_row = i // m
+        cur_col = i % m
+        is_border = False
+        for dr, dc in deltas:
+            nxt_row = cur_row + dr
+            nxt_col = cur_col + dc
+            if 0 <= nxt_row and nxt_row < n and 0 <= nxt_col and nxt_col < m:
+                j = nxt_row * m + nxt_col
+                adj[i].append(j)
+            else:
+                is_border = True
+        if is_border:
+            border_nodes.append(i)
+
+    new_level = []
+    mdl = Model()
+        
+    # Binary variables for each object type
+    W = [mdl.integer_var(name='W_{}'.format(i), lb=0, ub=1) for i in range(n_nodes)] # A wall
+    S = [mdl.integer_var(name='S_{}'.format(i), lb=0, ub=1) for i in range(n_nodes)] # Empty space
+    K = [mdl.integer_var(name='K_{}'.format(i), lb=0, ub=1) for i in range(n_nodes)] # A key
+    D = [mdl.integer_var(name='D_{}'.format(i), lb=0, ub=1) for i in range(n_nodes)] # A door
+    E1 = [mdl.integer_var(name='E1_{}'.format(i), lb=0, ub=1) for i in range(n_nodes)] # An enemy type
+    E2 = [mdl.integer_var(name='E2_{}'.format(i), lb=0, ub=1) for i in range(n_nodes)] # An enemy type
+    E3 = [mdl.integer_var(name='E3_{}'.format(i), lb=0, ub=1) for i in range(n_nodes)] # An enemy type
+    P = [mdl.integer_var(name='P_{}'.format(i), lb=0, ub=1) for i in range(n_nodes)] # The player
+    all_objects =    [ W,   S,   K,   D,  E1,  E2,  E3,   P]
+    all_characters = ['w', '.', '+', 'g', '1', '2', '3', 'A']
+
+
+    # Helper function that maps node ids to object characters
+    def get_char_from_variables(solution, node_id):
+        for object_var, label in zip(all_objects, all_characters):
+            if solution.get_value(object_var[node_id]) == 1:
+                return label
+        return '?'
+
+    # Ensure that exactly one object is present in each cell
+    add_object_placement(mdl, all_objects)
+
+    # Zelda specific constraints
+    #    ----
+    # Ensure that all cells on the boundary are walls
+    borders_as_walls = [W[i] for i in border_nodes]
+    mdl.add_constraint(sum(borders_as_walls) == len(border_nodes))
+    # Ensure that there are exactly one: key, player, door
+    mdl.add_constraint(sum(K) == 1)
+    mdl.add_constraint(sum(P) == 1)
+    mdl.add_constraint(sum(D) == 1)
+    free_objects = n*m - sum(W)
+    mdl.add_constraint(sum(E1)+sum(E2)+sum(E3) <= 0.6 * free_objects)
+
+    add_reachability(mdl, adj, [P], [K, D], [W, D])
+   
+
+    return mdl.get_cplex()
+
+
 def fix_zelda_level(level):
 
     #from IPython import embed
@@ -181,6 +254,7 @@ def fix_zelda_level(level):
         all_objects =    [ W,   S,   K,   D,  E1,  E2,  E3,   P]
         all_characters = ['w', '.', '+', 'g', '1', '2', '3', 'A']
 
+
         # Helper function that maps node ids to object characters
         def get_char_from_variables(solution, node_id):
             for object_var, label in zip(all_objects, all_characters):
@@ -205,7 +279,7 @@ def fix_zelda_level(level):
 
         add_reachability(mdl, adj, [P], [K, D], [W, D])
         
-        # Examine the level and determine the edit distance costs
+        #Examine the level and determine the edit distance costs
         objects = []
         cost_move = 1
         cost_change = 10
@@ -217,14 +291,16 @@ def fix_zelda_level(level):
                     objects_in_graph.append((cur_object[i], cur_label == level[r][c]))
             objects.append((objects_in_graph, cost_move, cost_change))
 
-        # Add edit distance constraints
+        # # Add edit distance constraints
         add_edit_distance(mdl, adj, objects)
+
 
         #print(len(list(mdl.iter_variables())))
         #print(len(list(mdl.iter_constraints())))
         solution = mdl.solve()
         #print(solution)
-
+        #from IPython import embed
+        #embed()
         # Extract the new level from the MIP
         for r in range(n):
             line = []
