@@ -7,8 +7,6 @@ import numpy as np
 
 from algos.astar import search
 
-dataroot = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'fake')
-
 
 def evaluate(lvl):
     """Use this function to evaluate the level"""
@@ -85,24 +83,10 @@ def evaluate(lvl):
         return False
 
     # the level at least has one enemy
-    #if num_enemy1 + num_enemy2 + num_enemy3 == 0:
+    # if num_enemy1 + num_enemy2 + num_enemy3 == 0:
     #    return False
 
     return True
-
-num_levels = 0
-num_valid_levels = 0
-all_valid_lvs = []
-for lvl in os.listdir(dataroot):
-    num_levels += 1
-    with open(os.path.join(dataroot, lvl), 'r') as f:
-        lvlJson = json.load(f)
-        if_valid = evaluate(lvlJson)
-
-        if if_valid:
-            all_valid_lvs.append(lvlJson)
-            print(lvl)
-            num_valid_levels += 1
 
 
 def compute_duplicated_lvls(lvl_lst):
@@ -121,9 +105,28 @@ def compute_duplicated_lvls(lvl_lst):
     return num_duplicated, unique_lvls
 
 
-num_duplicated, unique_lvls = compute_duplicated_lvls(all_valid_lvs)
+def run():
+    dataroot = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'fake')
+
+    num_levels = 0
+    num_valid_levels = 0
+    all_valid_lvs = []
+    for lvl in os.listdir(dataroot):
+        num_levels += 1
+        with open(os.path.join(dataroot, lvl), 'r') as f:
+            lvlJson = json.load(f)
+            if_valid = evaluate(lvlJson)
+
+            if if_valid:
+                all_valid_lvs.append(lvlJson)
+                print(lvl)
+                num_valid_levels += 1
+    num_duplicated, unique_lvls = compute_duplicated_lvls(all_valid_lvs)
+
+    print('Valid levels: {} / {}'.format(num_valid_levels, num_levels))
+    print('Duplicated valid levels: {} / {}'.format(num_duplicated, num_valid_levels))
+    print('Unique and playable levles: {} / {}'.format(len(unique_lvls), num_levels))
 
 
-print('Valid levels: {} / {}'.format(num_valid_levels, num_levels))
-print('Duplicated valid levels: {} / {}'.format(num_duplicated, num_valid_levels))
-print('Unique and playable levles: {} / {}'.format(len(unique_lvls), num_levels))
+if __name__ == '__main__':
+    run()
