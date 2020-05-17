@@ -15,6 +15,7 @@ from algos.milp.zelda.program import Program
 from mipaal.utils import cplex_utils, experiment_utils
 from mipaal.mip_solvers import MIPFunction
 import algos.torch.dcgan.dcgan as dcgan
+from algos.milp.zelda.utils import mip_sol_to_gan_out, gan_out_2_coefs
 
 seed = 999
 random.seed(seed)
@@ -52,7 +53,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 netG = dcgan.DCGAN_G(32, 32, 8, 64, 1, 0)
 
-netG_checkpoint = os.path.join(os.path.dirname(__file__), 'samples', 'netG_epoch_369_999.pth')
+netG_checkpoint = os.path.join(os.path.dirname(__file__), 'samples', 'netG_epoch_179_999.pth')
 netG.load_state_dict(torch.load(netG_checkpoint))
 netG.to(device)
 
@@ -80,28 +81,38 @@ def vars2grid(si):
 
 
 total_time = 0
-num_iter = 100
+num_iter = 5
 with torch.no_grad():
     netG.eval()
     for i in tqdm.tqdm(range(num_iter)):
         # first we use gan to generate the level
         fixed_noise = torch.FloatTensor(1, 32, 1, 1).normal_(0, 1).to(device)
         output = netG(fixed_noise)
+        pred_coefs = gan_out_2_coefs(output, c.size)
+        mip_function = MIPFunction(var_type, G, h, A, b, verbose=0,
+                                   input_mps=os.path.join(experiment_dir, 'gomory_prob.mps'),
+                                   gomory_limit=params.gomory_limit,
+                                   test_timing=params.test_timing,
+                                   test_integrality=params.test_integrality,
+                                   test_cuts_generated=params.test_cuts_generated)
+        x = mip_function(Q, pred_coefs, G, h, A, b)
+        mip_sol_to_gan_out(output, x)
+        mip_function.release()
         im = output[:, :, :9, :13].cpu().numpy()
         im = np.argmax(im, axis=1)
 
         # then we use milp to fix the level
         # We first need to form the solution
-        Wc, Pc, Kc, Gc, E1c, E2c, E3c, Emc = program.get_objective_params_from_gan_output(im[0].tolist())
-        start_time = time.time()
-        program.set_objective(Wc, Pc, Kc, Gc, E1c, E2c, E3c, Emc)
-        si = program.solve()
-        end_time = time.time()
-        total_time += end_time - start_time
-        new_grid = vars2grid(si)
+        # Wc, Pc, Kc, Gc, E1c, E2c, E3c, Emc = program.get_objective_params_from_gan_output(im[0].tolist())
+        # start_time = time.time()
+        # program.set_objective(Wc, Pc, Kc, Gc, E1c, E2c, E3c, Emc)
+        # si = program.solve()
+        # end_time = time.time()
+        # total_time += end_time - start_time
+        # new_grid = vars2grid(si)
 
         with open(os.path.join(output_path, '{}.json'.format(i)), 'w') as f:
-            f.write(json.dumps(new_grid))
+            f.write(json.dumps(im[0].tolist()))
 
 average_time = total_time / num_iter
 print('average time for running the solver: {}'.format(average_time))
