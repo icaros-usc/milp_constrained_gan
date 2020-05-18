@@ -20,7 +20,7 @@ from torch.utils.tensorboard import SummaryWriter
 from utils.TrainLevelHelper import get_lvls, get_integer_lvl
 from algos.milp.zelda.program import Program
 from mipaal.utils import cplex_utils, experiment_utils
-from mipaal.mip_solvers import MIPFunction
+from mipaal.mip_solvers import MIPFunction, LPFunction
 from algos.milp.zelda.utils import mip_sol_to_gan_out, gan_out_2_coefs
 
 os.chdir(".")
@@ -290,14 +290,16 @@ for epoch in range(opt.niter):
         # here we will plug in the mipfunction
         # Step 2. construct coefficients from the output of the netG
         pred_coefs = gan_out_2_coefs(fake, c.size)
-        mip_function = MIPFunction(var_type, G, h, A, b, verbose=0,
-                                   input_mps=os.path.join(experiment_dir, 'gomory_prob.mps'),
-                                   gomory_limit=params.gomory_limit,
-                                   test_timing=params.test_timing,
-                                   test_integrality=params.test_integrality,
-                                   test_cuts_generated=params.test_cuts_generated)
+        # mip_function = MIPFunction(var_type, G, h, A, b, verbose=0,
+        #                            input_mps=os.path.join(experiment_dir, 'gomory_prob.mps'),
+        #                            gomory_limit=params.gomory_limit,
+        #                            test_timing=params.test_timing,
+        #                            test_integrality=params.test_integrality,
+        #                            test_cuts_generated=params.test_cuts_generated)
+        lp_function = LPFunction(var_type, G, h, A, b, input_mps=os.path.join(experiment_dir, 'gomory_prob.mps'))
         start_time = time.time()
-        x = mip_function(Q, pred_coefs, G, h, A, b)
+        # x = mip_function(Q, pred_coefs, G, h, A, b)
+        x = lp_function(Q, pred_coefs, G, h, A, b)
         end_time = time.time()
         total_time += end_time - start_time
         num_running += 1
@@ -305,7 +307,8 @@ for epoch in range(opt.niter):
 
         errG = netD(fake)
         errG.backward(one)
-        mip_function.release()
+        # mip_function.release()
+        lp_function.release()
         optimizerG.step()
         gen_iterations += 1
 

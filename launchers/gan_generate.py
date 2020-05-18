@@ -24,7 +24,7 @@ netG.to(device)
 
 with torch.no_grad():
     netG.eval()
-    for i in tqdm.tqdm(range(1000)):
+    for i in tqdm.tqdm(range(15000)):
         fixed_noise = torch.FloatTensor(1, 32, 1, 1).normal_(0, 1).to(device)
         output = netG(fixed_noise)
         im = output[:, :, :9, :13].cpu().numpy()

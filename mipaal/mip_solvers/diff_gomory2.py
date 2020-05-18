@@ -1,6 +1,5 @@
 import torch
 from torch.autograd import Function
-# from .gomory_solver.gomory_solver import gomory_solver
 from mipaal.qpthlocal.qp import QPFunction
 from mipaal.qpthlocal.qp import QPSolvers
 from mipaal.utils import cplex_utils
@@ -33,44 +32,24 @@ class MIPFunction(Function):
         self.test_timing = test_timing
         self.test_integrality = test_integrality
         self.test_cuts_generated = test_cuts_generated
-        if self.test_timing: #TODO get timing
+        if self.test_timing:  # TODO get timing
             # timings are in seconds
             self.time_mipsolve = 0
             self.time_backprop = 0
-        if self.test_integrality: # TODO get integrality
+        if self.test_integrality:  # TODO get integrality
             # % of integral variables not equal to optimal value
             self.percent_same = 0
             self.percent_integer = 0
             self.avg_difference = 0
-        if self.test_cuts_generated: # TODO get cuts generated
+        if self.test_cuts_generated:  # TODO get cuts generated
             self.num_cuts_generated = 0
             self.num_initial_cuts = A.shape[0] + G.shape[0]
 
     def forward(self, Q, p, G, h, A, b):
-
-        # solve just MIP to get cutting planes in G, h, A, b
-        # new_G, new_h, new_A, new_b = gomory_solver(obj_coef_c=p.detach().numpy(), var_type=self.var_type,
-        #               G=G.numpy(), h=h.numpy(), A=A.numpy(), b=b.numpy())
-        # build cplex object from problem
-
-        # print("Q:", Q.shape)
-        # print("c:", p.shape)
-        # print("G:", G.shape)
-        # print("h:", h.shape)
-        # print("A:", A.shape)
-        # print("b:", b.shape)
-
-        # from IPython import embed; import sys; embed(); sys.exit(1)
-
         cpx = cplex_utils.matrices_to_cplex(c=p.detach().numpy(),
                                             G=G.numpy(), h=h.numpy(),
                                             A=A.numpy(), b=b.numpy(),
                                             var_type=self.var_type)
-        # rebuttal
-        # cpx.solve()
-        # true_integral_soln = np.array(cpx.solution.get_values())
-        # rebuttal
-
         # write to mps file
         cpx.write(self.input_mps)
 
@@ -93,7 +72,7 @@ class MIPFunction(Function):
         end = time.time()
         if self.test_timing:
             self.time_mipsolve += end - start
-            # print(self.time_mipsolve)
+            print(self.time_mipsolve)
 
         # from IPython import embed; import sys; embed(); sys.exit(1)
 
@@ -114,9 +93,12 @@ class MIPFunction(Function):
 
             MIP_solution_values = np.array(cpx.solution.get_values())
 
-            self.percent_same = np.mean(np.isclose(LP_solution_values[integral_vars], MIP_solution_values[integral_vars]))
-            self.percent_integer = np.mean(np.isclose(LP_solution_values[integral_vars], np.round(LP_solution_values[integral_vars])))
-            self.avg_difference = np.mean(np.abs(LP_solution_values[integral_vars] - MIP_solution_values[integral_vars]))
+            self.percent_same = np.mean(
+                np.isclose(LP_solution_values[integral_vars], MIP_solution_values[integral_vars]))
+            self.percent_integer = np.mean(
+                np.isclose(LP_solution_values[integral_vars], np.round(LP_solution_values[integral_vars])))
+            self.avg_difference = np.mean(
+                np.abs(LP_solution_values[integral_vars] - MIP_solution_values[integral_vars]))
             # print(self.percent_same, self.percent_integer, self.avg_difference)
 
         if self.test_cuts_generated:
