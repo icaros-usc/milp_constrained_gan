@@ -30,7 +30,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--nz', type=int, default=32, help='size of the latent z vector')
 parser.add_argument('--ngf', type=int, default=64)
 parser.add_argument('--ndf', type=int, default=64)
-parser.add_argument('--batchSize', type=int, default=1, help='input batch size')
+parser.add_argument('--batchSize', type=int, default=16, help='input batch size')
 parser.add_argument('--niter', type=int, default=25000, help='number of epochs to train for')
 parser.add_argument('--lrD', type=float, default=0.00005, help='learning rate for Critic, default=0.00005')
 parser.add_argument('--lrG', type=float, default=0.00005, help='learning rate for Generator, default=0.00005')
@@ -69,12 +69,12 @@ c, G, h, A, b, var_type = cplex_utils.cplex_to_matrices(cpx)
 # A = A[np.array(inds)]
 # b = b[np.array(inds)]
 
-G = torch.from_numpy(G)
-h = torch.from_numpy(h)
-A = torch.from_numpy(A)
-b = torch.from_numpy(b)
-Q = 1e-5 * torch.eye(A.shape[1])
-Q = Q.type_as(G)
+G = torch.from_numpy(G).float().cuda()
+h = torch.from_numpy(h).float().cuda()
+A = torch.from_numpy(A).float().cuda()
+b = torch.from_numpy(b).float().cuda()
+Q = 1e-5 * torch.eye(A.shape[1]).cuda()
+Q = Q.type_as(G).cuda()
 
 if opt.experiment is None:
     opt.experiment = 'samples'
@@ -87,7 +87,7 @@ torch.manual_seed(opt.seed)
 
 cudnn.benchmark = True
 
-opt.cuda = False
+opt.cuda = True
 if torch.cuda.is_available() and not opt.cuda:
     print("WARNING: You have a CUDA device, so you should probably run with --cuda")
 
@@ -195,8 +195,8 @@ def combine_images(generated_images):
 
 
 if opt.cuda:
-    netD.cuda()
-    netG.cuda()
+    netD.cuda(1)
+    netG.cuda(1)
     input = input.cuda()
     one, mone = one.cuda(), mone.cuda()
     noise, fixed_noise = noise.cuda(), fixed_noise.cuda()
@@ -289,7 +289,7 @@ for epoch in range(opt.niter):
         fake = netG(noisev)
         # here we will plug in the mipfunction
         # Step 2. construct coefficients from the output of the netG
-        pred_coefs = gan_out_2_coefs(fake, c.size)
+        pred_coefs = gan_out_2_coefs(fake, c.size, True)
         # mip_function = MIPFunction(var_type, G, h, A, b, verbose=0,
         #                            input_mps=os.path.join(experiment_dir, 'gomory_prob.mps'),
         #                            gomory_limit=params.gomory_limit,
@@ -299,7 +299,7 @@ for epoch in range(opt.niter):
         lp_function = LPFunction(var_type, G, h, A, b, input_mps=os.path.join(experiment_dir, 'gomory_prob.mps'))
         start_time = time.time()
         # x = mip_function(Q, pred_coefs, G, h, A, b)
-        x = lp_function(Q, pred_coefs, G, h, A, b)
+        x = lp_function(Q, pred_coefs, G, h, A, b).cuda()
         end_time = time.time()
         total_time += end_time - start_time
         num_running += 1
@@ -316,19 +316,15 @@ for epoch in range(opt.niter):
               % (epoch, opt.niter, i, num_batches, gen_iterations,
                  errD.data[0], errG.data[0], errD_real.data[0], errD_fake.data[0]))
 
-    print('average time for running the mip_function: {}'.format(total_time / num_running))
+    print('average time for running the lp_function: {}'.format(total_time / num_running))
     if epoch % 10 == 9 or epoch == opt.niter - 1:  # was 500
         fake = netG(Variable(fixed_noise, volatile=True))
         pred_coefs = gan_out_2_coefs(fake, c.size)
-        mip_function = MIPFunction(var_type, G, h, A, b, verbose=0,
-                                   input_mps=os.path.join(experiment_dir, 'gomory_prob.mps'),
-                                   gomory_limit=params.gomory_limit,
-                                   test_timing=params.test_timing,
-                                   test_integrality=params.test_integrality,
-                                   test_cuts_generated=params.test_cuts_generated)
-        x = mip_function(Q, pred_coefs, G, h, A, b)
+        lp_function = LPFunction(var_type, G, h, A, b,
+                                   input_mps=os.path.join(experiment_dir, 'gomory_prob.mps'))
+        x = lp_function(Q, pred_coefs, G, h, A, b)
         mip_sol_to_gan_out(fake, x)
-        mip_function.release()
+        lp_function.release()
         im = fake.data[:, :, :9, :13].cpu().numpy()
         im = np.argmax(im, axis=1)
 

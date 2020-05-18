@@ -289,7 +289,7 @@ for epoch in range(opt.niter):
         fake = netG(noisev)
         # here we will plug in the mipfunction
         # Step 2. construct coefficients from the output of the netG
-        pred_coefs = gan_out_2_coefs(fake, c.size)
+        pred_coefs = gan_out_2_coefs(fake, c.size)[0, :]
         mip_function = MIPFunction(var_type, G, h, A, b, verbose=0,
                                    input_mps=os.path.join(experiment_dir, 'gomory_prob.mps'),
                                    gomory_limit=params.gomory_limit,

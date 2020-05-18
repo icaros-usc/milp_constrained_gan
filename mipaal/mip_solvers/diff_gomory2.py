@@ -154,7 +154,7 @@ class LPFunction(Function):
     def __init__(self, var_type, G, h, A, b, eps=1e-12, verbose=0, notImprovedLim=3, maxIter=20, model_params=None,
                  custom_solver=None, input_mps="gomory_prob.mps", *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.qp_function = QPFunction(solver=QPSolvers.GUROBI, verbose=True)
+        self.qp_function = QPFunction(solver=QPSolvers.PDIPM_BATCHED, verbose=True)
         self.var_type = var_type
         self.verbose = verbose
         self.input_mps = input_mps
@@ -165,7 +165,6 @@ class LPFunction(Function):
 
     # @profile
     def forward(self, Q, p, G, h, A, b):
-        # return self.qp_function(Q, p, self.G, self.h, self.A, self.b)
         return self.qp_function(Q, p, G, h, A, b)
 
     # @profile

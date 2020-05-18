@@ -1,11 +1,13 @@
 import torch
 
 
-def gan_out_2_coefs(gan_output, len_coeff):
+def gan_out_2_coefs(gan_output, len_coeff, if_cuda=False):
     """Use this function to translate the output of generator to the coefficients."""
-    out = torch.zeros(len_coeff)
+    out = torch.zeros(gan_output.shape[0], len_coeff).cuda()
+    if if_cuda:
+        out = out.cuda()
     # flatten it
-    out[0:936] = torch.flatten(gan_output[:, :, :9, :13])
+    out[:, 0:936] = gan_output[:, :, :9, :13].reshape(-1, 936)
     # make it negative because we want to maximize it
     out = -out
     # make it the same size with the coefficients
