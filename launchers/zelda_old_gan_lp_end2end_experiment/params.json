@@ -8,7 +8,7 @@
     "batch_size": 64,
     "patience": 1000,
     "gomory_limit": -1,
-    "test_timing": false,
+    "test_timing": true,
     "test_cuts_generated": false,
     "test_integrality": false
 }
