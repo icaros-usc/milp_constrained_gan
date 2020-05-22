@@ -1,36 +1,42 @@
-from __future__ import print_function
-
+"""We want to see if we can design some objective function to use gan's output as a guide for milp solver"""
 import argparse
-import math
-import random
-import shutil
-import time
-import os
 import json
+import os
+import random
+import time
 
-import matplotlib.pyplot as plt
 import numpy as np
+import torch
+import tqdm
+
 import torch.backends.cudnn as cudnn
 import torch.optim as optim
-from torch.autograd import Variable
-import torch
 
+from mip import get_mip_program
+#from algos.milp.zelda.program import Program
 import algos.torch.dcgan.dcgan as dcgan
-from torch.utils.tensorboard import SummaryWriter
 from utils.TrainLevelHelper import get_lvls, get_integer_lvl
-from algos.milp.zelda.program import Program
-from mipaal.utils import cplex_utils, experiment_utils
-from mipaal.mip_solvers import MIPFunction, LPFunction
-from algos.milp.zelda.utils import mip_sol_to_gan_out, gan_out_2_coefs
 
-os.chdir(".")
-print(os.getcwd())
+from mipaal.utils import cplex_utils, experiment_utils
+
+from mipaal.mip_solvers import MIPFunction
+
+from torch.autograd import Variable
+
+import sympy
+
+#oint if needed
+#    netG.load_state_dict(torch.load(opt.netG))
+
+#netG_checkpoint = os.path.join(os.path.dirname(__file__), 'samples', 'netG_epoch_23999_999.pth')
+#netG.load_state_dict(torch.load(netG_checkpoint))
+#netG.to(device)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--nz', type=int, default=32, help='size of the latent z vector')
 parser.add_argument('--ngf', type=int, default=64)
 parser.add_argument('--ndf', type=int, default=64)
-parser.add_argument('--batchSize', type=int, default=16, help='input batch size')
+parser.add_argument('--batchSize', type=int, default=1, help='input batch size')
 parser.add_argument('--niter', type=int, default=25000, help='number of epochs to train for')
 parser.add_argument('--lrD', type=float, default=0.00005, help='learning rate for Critic, default=0.00005')
 parser.add_argument('--lrG', type=float, default=0.00005, help='learning rate for Generator, default=0.00005')
@@ -52,29 +58,27 @@ parser.add_argument('--seed', type=int, default=999, help='random seed for repro
 opt = parser.parse_args()
 # print(opt)
 
-# now we need to setup mipfunction
-experiment_dir = os.path.join(os.path.dirname(__file__), 'milp_gan_end_2_end_experiment')
-param_file = os.path.join(experiment_dir, 'params.json')
-params = experiment_utils.Params(param_file)
-shutil.rmtree(os.path.join(experiment_dir, 'runs'), ignore_errors=True)
-writer = SummaryWriter(log_dir=os.path.join(experiment_dir, 'runs'))
-models_dir = os.path.join(experiment_dir, 'models')
-os.makedirs(models_dir, exist_ok=True)
-# Step 1. We translate our cplex model to matrices
-milp_program = Program()
-cpx = milp_program.get_cplex_prob()  # get the cplex problem from the docplex model
-cpx.cleanup(epsilon=0.0001)
-c, G, h, A, b, var_type = cplex_utils.cplex_to_matrices(cpx)
-# _, inds = sympy.Matrix(A).T.rref()
-# A = A[np.array(inds)]
-# b = b[np.array(inds)]
 
-G = torch.from_numpy(G).float().cuda()
-h = torch.from_numpy(h).float().cuda()
-A = torch.from_numpy(A).float().cuda()
-b = torch.from_numpy(b).float().cuda()
-Q = 1e-5 * torch.eye(A.shape[1]).cuda()
-Q = Q.type_as(G).cuda()
+
+def gan_out_2_coefs(gan_output, len_coeff):
+    """Use this function to translate the output of generator to the coefficients."""
+    num_nodes = 9*13
+    out = torch.zeros(len_coeff)
+    # flatten it
+    out[0:936] = torch.flatten(gan_output[:, :, :9, :13])
+    # make it negative because we want to maximize it
+    out = -out
+    # make it the same size with the coefficients
+    # Wc = out[0:num_nodes]
+    # Emc = out[num_nodes:2*num_nodes]
+    # Kc = out[2*num_nodes:3*num_nodes]
+    # Gc = out[3*num_nodes:4*num_nodes]
+    # E1c = out[4*num_nodes:5*num_nodes]
+    # E2c = out[5*num_nodes:6*num_nodes]
+    # E3c = out[6*num_nodes:7*num_nodes]
+    # Pc = out[7*num_nodes:8*num_nodes]
+  
+    return out
 
 if opt.experiment is None:
     opt.experiment = 'samples'
@@ -87,25 +91,13 @@ torch.manual_seed(opt.seed)
 
 cudnn.benchmark = True
 
-opt.cuda = True
 if torch.cuda.is_available() and not opt.cuda:
     print("WARNING: You have a CUDA device, so you should probably run with --cuda")
 
 map_size = 32
 
-"""
-if opt.json is None:
-    if opt.problem == 0:
-        examplesJson = "NewTrainingLevels.json"
-    else:
-        examplesJson = "sepEx/examplemario{}.json".format(opt.problem)
-else:
-    examplesJson = opt.json
-X = np.array(json.load(open(examplesJson)))
-z_dims = 23 # Number different tile types
-"""
 
-index2strJson = json.load(open('index2str.json', 'r'))
+index2strJson = json.load(open('zelda_index2str.json', 'r'))
 str2index = {}
 for key in index2strJson:
     str2index[index2strJson[key]] = key
@@ -122,8 +114,10 @@ X = np.array(np_lvls)
 z_dims = len(index2strJson)
 
 num_batches = X.shape[0] / opt.batchSize
-
 print("Batch size is " + str(opt.batchSize))
+
+#from IPython import embed
+#embed()
 
 print("SHAPE ", X.shape)
 X_onehot = np.eye(z_dims, dtype='uint8')[X]
@@ -145,7 +139,6 @@ ndf = int(opt.ndf)
 
 n_extra_layers = int(opt.n_extra_layers)
 
-
 # custom weights initialization called on netG and netD
 def weights_init(m):
     classname = m.__class__.__name__
@@ -154,7 +147,6 @@ def weights_init(m):
     elif classname.find('BatchNorm') != -1:
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
-
 
 netG = dcgan.DCGAN_G(map_size, nz, z_dims, ngf, ngpu, n_extra_layers)
 
@@ -168,14 +160,13 @@ netD.apply(weights_init)
 
 if opt.netD != '':
     netD.load_state_dict(torch.load(opt.netD))
-# print(netD)
+
 
 input = torch.FloatTensor(opt.batchSize, z_dims, map_size, map_size)
 noise = torch.FloatTensor(opt.batchSize, nz, 1, 1)
 fixed_noise = torch.FloatTensor(opt.batchSize, nz, 1, 1).normal_(0, 1)
 one = torch.FloatTensor([1])
 mone = one * -1
-
 
 def tiles2image(tiles):
     return plt.get_cmap('rainbow')(tiles / float(z_dims))
@@ -193,10 +184,9 @@ def combine_images(generated_images):
         image[i * shape[0]:(i + 1) * shape[0], j * shape[1]:(j + 1) * shape[1]] = img
     return image
 
-
 if opt.cuda:
-    netD.cuda(1)
-    netG.cuda(1)
+    netD.cuda()
+    netG.cuda()
     input = input.cuda()
     one, mone = one.cuda(), mone.cuda()
     noise, fixed_noise = noise.cuda(), fixed_noise.cuda()
@@ -210,6 +200,13 @@ else:
     optimizerD = optim.RMSprop(netD.parameters(), lr=opt.lrD)
     optimizerG = optim.RMSprop(netG.parameters(), lr=opt.lrG)
 
+
+output_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'fake_mipaal_gan_obj')
+os.makedirs(output_path, exist_ok=True)
+
+#program = Program()
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 gen_iterations = 0
 for epoch in range(opt.niter):
 
@@ -218,12 +215,7 @@ for epoch in range(opt.niter):
     X_train = X_train[torch.randperm(len(X_train))]
 
     i = 0
-    total_time = 0
-    num_running = 0
     while i < num_batches:  # len(dataloader):
-        ############################
-        # (1) Update D network
-        ###########################
         for p in netD.parameters():  # reset requires_grad
             p.requires_grad = True  # they are set to False below in netG update
 
@@ -244,21 +236,15 @@ for epoch in range(opt.niter):
 
             i += 1
 
-            real_cpu = torch.FloatTensor(data)
 
-            if (False):
-                # im = data.cpu().numpy()
-                print(data.shape)
-                real_cpu = combine_images(tiles2image(np.argmax(data, axis=1)))
-                print(real_cpu)
-                plt.imsave('{0}/real_samples.png'.format(opt.experiment), real_cpu)
-                exit()
+            real_cpu = torch.FloatTensor(data)
 
             netD.zero_grad()
             # batch_size = num_samples #real_cpu.size(0)
 
             if opt.cuda:
                 real_cpu = real_cpu.cuda()
+
 
             input.resize_as_(real_cpu).copy_(real_cpu)
             inputv = Variable(input)
@@ -276,6 +262,7 @@ for epoch in range(opt.niter):
             errD = errD_real - errD_fake
             optimizerD.step()
 
+
         ############################
         # (2) Update G network
         ###########################
@@ -284,47 +271,71 @@ for epoch in range(opt.niter):
         netG.zero_grad()
         # in case our last batch was the tail batch of the dataloader,
         # make sure we feed a full batch of noise
-        noise.resize_(opt.batchSize, nz, 1, 1).normal_(0, 1)
+            #fixed_noise = torch.FloatTensor(1, 32, 1, 1).normal_(0, 1).to(device)
+        noise.resize_(1, nz, 1, 1).normal_(0, 1)
         noisev = Variable(noise)
-        fake = netG(noisev)
-        # here we will plug in the mipfunction
-        # Step 2. construct coefficients from the output of the netG
-        pred_coefs = gan_out_2_coefs(fake, c.size, True)
-        # mip_function = MIPFunction(var_type, G, h, A, b, verbose=0,
-        #                            input_mps=os.path.join(experiment_dir, 'gomory_prob.mps'),
-        #                            gomory_limit=params.gomory_limit,
-        #                            test_timing=params.test_timing,
-        #                            test_integrality=params.test_integrality,
-        #                            test_cuts_generated=params.test_cuts_generated)
-        lp_function = LPFunction(var_type, G, h, A, b, input_mps=os.path.join(experiment_dir, 'gomory_prob.mps'))
-        start_time = time.time()
-        # x = mip_function(Q, pred_coefs, G, h, A, b)
-        x = lp_function(Q, pred_coefs, G, h, A, b).cuda()
-        end_time = time.time()
-        total_time += end_time - start_time
-        num_running += 1
-        mip_sol_to_gan_out(fake, x)
+        output = netG(noisev)
 
-        errG = netD(fake)
-        errG.backward(one)
-        # mip_function.release()
-        lp_function.release()
+        #from IPython import embed
+        #embed()
+        #with torch.no_grad():
+        #  im = output[:, :, :9, :13].cpu()
+        #  im = np.argmax(im, axis=1)''
+        #from IPython import embed
+        #embed()
+
+        #cpx = program._model.get_cplex()
+        #program._model.parameters.threads.set(12)
+        #Wc, Pc, Kc, Gc, E1c, E2c, E3c, Emc = program.get_objective_params_from_gan_output(im[0])
+        #program.set_objective(Wc, Pc, Kc, Gc, E1c, E2c, E3c, Emc)
+        cpx = get_mip_program()
+        pred_coefs, G, h, A, b, var_type = cplex_utils.cplex_to_matrices(cpx)
+
+        pred_coefs = gan_out_2_coefs(output, pred_coefs.size)
+
+
+        # preprocess A to remove linearly independent rows (Bryan code)
+        #_, inds = sympy.Matrix(A).T.rref(simplified=True)
+
+
+        #A = A[np.array(inds)]
+        #b = b[np.array(inds)]
+#A = torch.from_numpy(A)
+#            b = torch.from_numpy(b)
+        G = torch.from_numpy(G)
+        h = torch.from_numpy(h)
+        A = torch.from_numpy(A)
+        b = torch.from_numpy(b)
+
+        Q = 1e-6 * torch.eye(A.shape[1])
+        Q = Q.type_as(G)
+
+        #pred_coefs = torch.from_numpy(pred_coefs)
+        mip_function = MIPFunction(var_type, G, h, A, b, verbose=0)
+
+        #from IPython import embed
+        #embed()
+        
+        mip_sol = mip_function(Q, pred_coefs, G, h, A, b)
+
+         #Wc, Pc, Kc, Gc, E1c, E2c, E3c, Emc = program.get_objective_params_from_gan_output(im[0].tolist())
+        N = 9 * 13
+        x = mip_sol[0, 0:8 * N].view(-1, 9, 13)
+        output[0, :, :9, :13] = x
+        
+        errG = netD(output)
+        errG.backward()
+        mip_function.release()
+
         optimizerG.step()
         gen_iterations += 1
 
         print('[%d/%d][%d/%d][%d] Loss_D: %f Loss_G: %f Loss_D_real: %f Loss_D_fake %f'
-              % (epoch, opt.niter, i, num_batches, gen_iterations,
-                 errD.data[0], errG.data[0], errD_real.data[0], errD_fake.data[0]))
+                  % (epoch, opt.niter, i, num_batches, gen_iterations,
+                     errD.data[0], errG.data[0], errD_real.data[0], errD_fake.data[0]))
 
-    print('average time for running the lp_function: {}'.format(total_time / num_running))
-    if epoch % 10 == 9 or epoch == opt.niter - 1:  # was 500
+    if epoch % 100 == 99 or epoch == opt.niter - 1:  # was 500
         fake = netG(Variable(fixed_noise, volatile=True))
-        pred_coefs = gan_out_2_coefs(fake, c.size)
-        lp_function = LPFunction(var_type, G, h, A, b,
-                                   input_mps=os.path.join(experiment_dir, 'gomory_prob.mps'))
-        x = lp_function(Q, pred_coefs, G, h, A, b)
-        mip_sol_to_gan_out(fake, x)
-        lp_function.release()
         im = fake.data[:, :, :9, :13].cpu().numpy()
         im = np.argmax(im, axis=1)
 
@@ -334,8 +345,55 @@ for epoch in range(opt.niter):
 
         torch.save(netG.state_dict(), '{0}/netG_epoch_{1}_{2}.pth'.format(opt.experiment, epoch, opt.seed))
 
-    # do checkpointing
-    # torch.save(netG.state_dict(), '{0}/netG_epoch_{1}_{2}.pth'.format(opt.experiment, epoch, opt.seed))
-    # torch.save(netD.state_dict(), '{0}/netD_epoch_{1}_{2}.pth'.format(opt.experiment, epoch, opt.seed))
-    # torch.save(netG.state_dict(), '{0}/netG_epoch_{1}.pth'.format(opt.experiment, epoch))
-    # torch.save(netD.state_dict(), '{0}/netD_epoch_{1}.pth'.format(opt.experiment, epoch))
+# exit()
+
+# def vars2grid(si):
+#     grid = [[1 for _ in range(13)] for _ in range(9)]
+#     for i in range(9):
+#         for j in range(13):
+#             ind = i * 13 + j
+#             if si.get_value(program.W[ind]) == 1:
+#                 grid[i][j] = 0
+#             elif si.get_value(program.K[ind]) == 1:
+#                 grid[i][j] = 2
+#             elif si.get_value(program.G[ind]) == 1:
+#                 grid[i][j] = 3
+#             elif si.get_value(program.E1[ind]) == 1:
+#                 grid[i][j] = 4
+#             elif si.get_value(program.E2[ind]) == 1:
+#                 grid[i][j] = 5
+#             elif si.get_value(program.E3[ind]) == 1:
+#                 grid[i][j] = 6
+#             elif si.get_value(program.P[ind]) == 1:
+#                 grid[i][j] = 7
+#     return grid
+
+
+# total_time = 0
+# num_iter = 100
+# with torch.no_grad():
+#     netG.eval()
+#     for i in tqdm.tqdm(range(num_iter)):
+#         # first we use gan to generate the level
+#         fixed_noise = torch.FloatTensor(1, 32, 1, 1).normal_(0, 1).to(device)
+#         output = netG(fixed_noise)
+#         im = output[:, :, :9, :13].cpu().numpy()
+#         im = np.argmax(im, axis=1)
+
+#         # then we use milp to fix the level
+#         # We first need to form the solution
+#         Wc, Pc, Kc, Gc, E1c, E2c, E3c, Emc = program.get_objective_params_from_gan_output(im[0].tolist())
+#         start_time = time.time()
+#         program.set_objective(Wc, Pc, Kc, Gc, E1c, E2c, E3c, Emc)
+#         end_time = time.time()
+#         total_time += end_time - start_time
+#         si = program.solve()
+#         new_grid = vars2grid(si)
+
+#         with open(os.path.join(output_path, '{}.json'.format(i)), 'w') as f:
+#             f.write(json.dumps(new_grid))
+
+
+
+# average_time = total_time / num_iter
+# print('average time for running the solver: {}'.format(average_time))

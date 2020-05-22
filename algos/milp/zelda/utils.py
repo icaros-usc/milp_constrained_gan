@@ -3,7 +3,7 @@ import torch
 
 def gan_out_2_coefs(gan_output, len_coeff, if_cuda=False):
     """Use this function to translate the output of generator to the coefficients."""
-    out = torch.zeros(gan_output.shape[0], len_coeff).cuda()
+    out = torch.zeros(gan_output.shape[0], len_coeff)
     if if_cuda:
         out = out.cuda()
     # flatten it

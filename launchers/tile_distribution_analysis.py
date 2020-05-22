@@ -1,15 +1,11 @@
 """In this file we compute the distribution of the tiles https://arxiv.org/pdf/1910.01603.pdf"""
 
 
-import json
 import os
-from copy import deepcopy
 
-import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
 
-from launchers.gan_evaluation import evaluate
 from launchers.hamming_distance_analysis import get_valid_lvls
 
 

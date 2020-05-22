@@ -1,23 +1,6 @@
-import json
 import os
 
 from PIL import Image
-from tqdm import tqdm
-
-
-dataroot = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'fake_milp_gan_end_2_end')
-output_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'fake_milp_gan_end_2_end_visual')
-
-if not os.path.exists(output_path):
-    """If there is no such a folder."""
-    os.makedirs(output_path, exist_ok=True)
-
-
-sprites_root = os.path.join(os.path.dirname(os.path.dirname(__file__)), '../GVGAI', 'sprites', 'oryx')
-sprites_path = {0: 'wall3.png', 1: 'floor3.png', 2: 'key3.png', 3: 'doorclosed1.png',
-                4: 'bat1.png', 5: 'bear1.png', 6: 'bee1.png', 7: 'swordman1_0.png'}
-
-target_img_size = (24, 24)
 
 
 def contcat_h(img1, img2):
@@ -39,7 +22,7 @@ def contcat_v(img1, img2):
     return dst
 
 
-def integerLvl2Img(lvl):
+def integerLvl2Img(lvl, sprites_root, sprites_path, target_img_size):
     """Use this function to translatte integer level to a image."""
     whole_img = None
     for row in range(len(lvl)):
@@ -58,10 +41,3 @@ def integerLvl2Img(lvl):
         else:
             whole_img = contcat_v(whole_img, row_img)
     return whole_img
-
-
-for lvl in tqdm(os.listdir(dataroot)):
-    with open(os.path.join(dataroot, lvl), 'r') as f:
-        lvlJson = json.load(f)
-        img = integerLvl2Img(lvlJson)
-        img.save(os.path.join(output_path, lvl.split('.')[0] + '.png'))

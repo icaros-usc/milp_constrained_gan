@@ -8,7 +8,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
 
-from launchers.gan_evaluation import evaluate
+from launchers.zelda_generated_lvls_evaluation import evaluate
 
 
 def get_valid_lvls(data_root):
@@ -56,7 +56,7 @@ def do_stats(valid_lvls):
     return langs, counts
 
 
-if __name__ == '__main__':
+def run():
     gan_generated_root = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'fake')
     milp_gan_two_stage_root = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda',
                                            'fake_milp_gan_obj')
@@ -84,3 +84,7 @@ if __name__ == '__main__':
     ax.legend()
     fig.tight_layout()
     plt.savefig('hamming_distance_analysis.pdf')
+
+
+if __name__ == '__main__':
+    run()
