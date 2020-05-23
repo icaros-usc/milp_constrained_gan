@@ -1,14 +1,12 @@
-from __future__ import print_function
+"""This file is for gan and lp relaxation experiment."""
 
 import argparse
-import math
 import random
 import shutil
 import time
 import os
 import json
 
-import matplotlib.pyplot as plt
 import numpy as np
 import torch.backends.cudnn as cudnn
 import torch.optim as optim
@@ -19,7 +17,7 @@ import algos.torch.dcgan.dcgan as dcgan
 from torch.utils.tensorboard import SummaryWriter
 from utils.TrainLevelHelper import get_lvls, get_integer_lvl
 from algos.milp.zelda.program import Program
-from mipaal.utils import cplex_utils, experiment_utils
+from mipaal.utils import cplex_utils
 from mipaal.mip_solvers import LPFunction
 from algos.milp.zelda.utils import mip_sol_to_gan_out, gan_out_2_coefs
 
@@ -43,17 +41,12 @@ def run(nz,
         gan_experiment,
         mipaal_experiment,
         adam,
-        problem,
         seed,
         lvl_data):
     os.chdir(".")
     print(os.getcwd())
 
-    # print(opt)
-
-    # now we need to setup mipfunction
-    param_file = os.path.join(mipaal_experiment, 'params.json')
-    params = experiment_utils.Params(param_file)
+    # now we need to setup lpfunction
     shutil.rmtree(os.path.join(mipaal_experiment, 'runs'), ignore_errors=True)
     writer = SummaryWriter(log_dir=os.path.join(mipaal_experiment, 'runs'))
     models_dir = os.path.join(mipaal_experiment, 'models')
@@ -84,11 +77,10 @@ def run(nz,
 
     os.makedirs(gan_experiment, exist_ok=True)
 
-    print("Manual Seed: ", seed)
     random.seed(seed)
     torch.manual_seed(seed)
 
-    cudnn.benchmark = True
+    cudnn.benchmark = True  # enable cudnn auto-tuner for finding the optimial set of algorithms.
 
     if torch.cuda.is_available() and not cuda:
         print("WARNING: You have a CUDA device, so you should probably run with --cuda")
@@ -161,7 +153,7 @@ def run(nz,
 
     gen_iterations = 0
     for epoch in range(niter):
-        X_train = X_train[torch.randperm(len(X_train))]
+        X_train = X_train[torch.randperm(len(X_train))]  # shuffle the training data
 
         i = 0
         total_time = 0
@@ -228,15 +220,9 @@ def run(nz,
             # here we will plug in the mipfunction
             # Step 2. construct coefficients from the output of the netG
             pred_coefs = gan_out_2_coefs(fake, c.size, cuda)
-            # mip_function = MIPFunction(var_type, G, h, A, b, verbose=0,
-            #                            input_mps=os.path.join(experiment_dir, 'gomory_prob.mps'),
-            #                            gomory_limit=params.gomory_limit,
-            #                            test_timing=params.test_timing,
-            #                            test_integrality=params.test_integrality,
-            #                            test_cuts_generated=params.test_cuts_generated)
+
             lp_function = LPFunction(var_type, G, h, A, b, input_mps=os.path.join(mipaal_experiment, 'gomory_prob.mps'))
             start_time = time.time()
-            # x = mip_function(Q, pred_coefs, G, h, A, b)
             x = lp_function(Q, pred_coefs, G, h, A, b)
             end_time = time.time()
             total_time += end_time - start_time
@@ -294,7 +280,6 @@ if __name__ == '__main__':
     parser.add_argument('--gan_experiment', help='Where to store samples and models')
     parser.add_argument('--mipaal_experiment', help='Where to store mipaal parameters file')
     parser.add_argument('--adam', action='store_true', help='Whether to use adam (default is rmsprop)')
-    parser.add_argument('--problem', type=int, default=0, help='Level examples')
     parser.add_argument('--seed', type=int, default=999, help='random seed for reproducibility')
     parser.add_argument('--lvl_data', help='Path to the human designed levels.')
     opt = parser.parse_args()
@@ -318,6 +303,5 @@ if __name__ == '__main__':
         opt.gan_experiment,
         opt.mipaal_experiment,
         opt.adam,
-        opt.problem,
         opt.seed,
         opt.lvl_data)

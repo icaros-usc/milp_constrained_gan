@@ -26,8 +26,8 @@ def run(dataroot,
 
 
 if __name__ == '__main__':
-    dataroot = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'gan_milp_end_2_end')
+    dataroot = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'gan')
     output_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda',
-                               'gan_milp_end_2_end_visual')
+                               'gan_visual')
     run(dataroot,
         output_path)

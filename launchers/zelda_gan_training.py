@@ -32,15 +32,11 @@ def run(nz,
         path_netD,
         clamp_lower,
         clamp_upper,
-        D_iters,
         n_extra_layers,
         gan_experiment,
         adam,
         seed,
         lvl_data):
-    os.chdir(".")
-    print(os.getcwd())
-
     if not os.path.exists(gan_experiment):
         os.system('mkdir {0}'.format(gan_experiment))
 
@@ -55,15 +51,14 @@ def run(nz,
 
     map_size = 32
 
-    index2strJson = json.load(open('zelda_index2str.json', 'r'))
+    index2strJson = json.load(open(os.path.join(os.path.dirname(__file__), 'zelda_index2str.json'), 'r'))
     str2index = {}
     for key in index2strJson:
         str2index[index2strJson[key]] = key
-    dataroot = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'Human')
 
     # get all levels and store them in one numpy array
     np_lvls = []
-    lvls = get_lvls(dataroot)
+    lvls = get_lvls(lvl_data)
     for lvl in lvls:
         numpyLvl = get_integer_lvl(lvl, str2index)
         np_lvls.append(numpyLvl)
@@ -72,23 +67,12 @@ def run(nz,
     z_dims = len(index2strJson)
 
     num_batches = X.shape[0] / batch_size
-
-    print("Batch size is " + str(batch_size))
-
-    print("SHAPE ", X.shape)
     X_onehot = np.eye(z_dims, dtype='uint8')[X]
-
     X_onehot = np.rollaxis(X_onehot, 3, 1)
-    # print("SHAPE ", X_onehot.shape)
-
     X_train = np.zeros((X.shape[0], z_dims, map_size, map_size))
-
-    X_train[:, 1, :, :] = 1.0  # Fill with empty space
-
-    # Pad part of level so its a square
+    X_train[:, 1, :, :] = 1.0
     X_train[:X.shape[0], :, :X.shape[1], :X.shape[2]] = X_onehot
 
-    # custom weights initialization called on netG and netD
     def weights_init(m):
         classname = m.__class__.__name__
         if classname.find('Conv') != -1:
@@ -99,7 +83,7 @@ def run(nz,
 
     netG = dcgan.DCGAN_G(map_size, nz, z_dims, ngf, ngpu, n_extra_layers)
     netG.apply(weights_init)
-    if path_netG != '':  # load checkpoint if needed
+    if path_netG != '':
         netG.load_state_dict(torch.load(path_netG))
 
     netD = dcgan.DCGAN_D(map_size, nz, z_dims, ndf, ngpu, n_extra_layers)
@@ -129,91 +113,85 @@ def run(nz,
         optimizerD = optim.RMSprop(netD.parameters(), lr=lrD)
         optimizerG = optim.RMSprop(netG.parameters(), lr=lrG)
 
-    gen_iterations = 0
     for epoch in range(niter):
-
-        # ! data_iter = iter(dataloader)
-
         X_train = X_train[torch.randperm(len(X_train))]
 
+        ############################
+        # (1) Update D network
+        ###########################
+        for p in netD.parameters():  # reset requires_grad
+            p.requires_grad = True  # they are set to False below in netG update
+        for p in netG.parameters():
+            p.requires_grad = False
         i = 0
+        netD.zero_grad()
+        total_errD_fake = 0
+        total_errD_real = 0
         while i < num_batches:  # len(dataloader):
-            ############################
-            # (1) Update D network
-            ###########################
-            for p in netD.parameters():  # reset requires_grad
-                p.requires_grad = True  # they are set to False below in netG update
+            # clamp parameters to a cube
+            for p in netD.parameters():
+                p.data.clamp_(clamp_lower, clamp_upper)
 
-            # train the discriminator Diters times
-            if gen_iterations < 25 or gen_iterations % 500 == 0:
-                Diters = 100
+            data = X_train[i * batch_size:(i + 1) * batch_size]
+
+            if cuda:
+                real_cpu = torch.FloatTensor(data).cuda(gpu_id)
             else:
-                Diters = D_iters
-            j = 0
-            while j < Diters and i < num_batches:  # len(dataloader):
-                j += 1
-
-                # clamp parameters to a cube
-                for p in netD.parameters():
-                    p.data.clamp_(clamp_lower, clamp_upper)
-
-                data = X_train[i * batch_size:(i + 1) * batch_size]
-
-                i += 1
-
                 real_cpu = torch.FloatTensor(data)
 
-                netD.zero_grad()
-                # batch_size = num_samples #real_cpu.size(0)
+            input.resize_as_(real_cpu).copy_(real_cpu)
 
-                if cuda:
-                    real_cpu = real_cpu.cuda(gpu_id)
+            errD_real = netD(input)
+            errD_real.backward(one)
+            total_errD_real += errD_real.item()
 
-                input.resize_as_(real_cpu).copy_(real_cpu)
-                inputv = Variable(input)
+            # train with fake
+            noise.resize_(batch_size, nz, 1, 1).normal_(0, 1)
+            fake = netG(noise)
+            errD_fake = netD(fake)
+            errD_fake.backward(mone)
+            total_errD_fake += errD_fake.item()
+            # update i
+            i += 1
+        optimizerD.step()
 
-                errD_real = netD(inputv)
-                errD_real.backward(one)
-
-                # train with fake
-                noise.resize_(batch_size, nz, 1, 1).normal_(0, 1)
-                noisev = Variable(noise, volatile=True)  # totally freeze netG
-                fake = Variable(netG(noisev).data)
-                inputv = fake
-                errD_fake = netD(inputv)
-                errD_fake.backward(mone)
-                errD = errD_real - errD_fake
-                optimizerD.step()
-
-            ############################
-            # (2) Update G network
-            ###########################
-            for p in netD.parameters():
-                p.requires_grad = False  # to avoid computation
-            netG.zero_grad()
+        ############################
+        # (2) Update G network
+        ###########################
+        for p in netG.parameters():
+            p.requires_grad = True
+        for p in netD.parameters():
+            p.requires_grad = False  # to avoid computation
+        i = 0
+        netG.zero_grad()
+        total_errG = 0
+        while i < num_batches:
             # in case our last batch was the tail batch of the dataloader,
             # make sure we feed a full batch of noise
             noise.resize_(batch_size, nz, 1, 1).normal_(0, 1)
-            noisev = Variable(noise)
-            fake = netG(noisev)
+            fake = netG(noise)
             errG = netD(fake)
             errG.backward(one)
-            optimizerG.step()
-            gen_iterations += 1
+            total_errG += errG.item()
+            i += 1
 
-            print('[%d/%d][%d/%d][%d] Loss_D: %f Loss_G: %f Loss_D_real: %f Loss_D_fake %f'
-                  % (epoch, niter, i, num_batches, gen_iterations,
-                     errD.data[0], errG.data[0], errD_real.data[0], errD_fake.data[0]))
+        optimizerG.step()
+        average_errG = total_errG / num_batches
+        average_errD_fake = total_errD_fake / num_batches
+        average_errD_real = total_errD_real / num_batches
 
-        if epoch % 1000 == 999 or epoch == niter - 1:  # was 500
-            fake = netG(Variable(fixed_noise, volatile=True))
-            im = fake.data[:, :, :9, :13].cpu().numpy()
-            im = np.argmax(im, axis=1)
+        print('[%d/%d][%d/%d] Loss_G: %f Loss_D_real: %f Loss_D_fake %f'
+              % (epoch, niter, i, num_batches,
+                 average_errG, average_errD_real, average_errD_fake))
 
-            f = open('{0}/fake_level_epoch_{1}_{2}.json'.format(gan_experiment, epoch, seed), "w")
-            f.write(json.dumps(im[0].tolist()))
-            f.close()
-
+        if epoch % 10 == 9 or epoch == niter - 1:
+            netG.eval()
+            with torch.no_grad():
+                fake = netG(fixed_noise)
+                im = fake.cpu().numpy()[:, :, :9, :13]
+                im = np.argmax(im, axis=1)
+            with open('{0}/fake_level_epoch_{1}_{2}.json'.format(gan_experiment, epoch, seed), 'w') as f:
+                f.write(json.dumps(im[0].tolist()))
             torch.save(netG.state_dict(), '{0}/netG_epoch_{1}_{2}.pth'.format(gan_experiment, epoch, seed))
 
 
@@ -234,7 +212,6 @@ if __name__ == '__main__':
     parser.add_argument('--path_netD', default='', help="path to netD (to continue training)")
     parser.add_argument('--clamp_lower', type=float, default=-0.01)
     parser.add_argument('--clamp_upper', type=float, default=0.01)
-    parser.add_argument('--D_iters', type=int, default=5, help='number of D iters per each G iter')
     parser.add_argument('--n_extra_layers', type=int, default=0, help='Number of extra layers on gen and disc')
     parser.add_argument('--gan_experiment', help='Where to store samples and models')
     parser.add_argument('--adam', action='store_true', help='Whether to use adam (default is rmsprop)')
@@ -257,7 +234,6 @@ if __name__ == '__main__':
         opt.path_netD,
         opt.clamp_lower,
         opt.clamp_upper,
-        opt.D_iters,
         opt.n_extra_layers,
         opt.gan_experiment,
         opt.adam,

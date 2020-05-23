@@ -106,7 +106,7 @@ def compute_duplicated_lvls(lvl_lst):
 
 
 def run():
-    dataroot = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'fake')
+    dataroot = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'gan')
 
     num_levels = 0
     num_valid_levels = 0
