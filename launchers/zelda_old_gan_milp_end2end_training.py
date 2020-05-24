@@ -1,108 +1,107 @@
-from __future__ import print_function
+"""This file is for gan and lp relaxation experiment."""
 
 import argparse
-import math
 import random
 import shutil
-import time
 import os
 import json
 
-import matplotlib.pyplot as plt
 import numpy as np
 import torch.backends.cudnn as cudnn
 import torch.optim as optim
-from torch.autograd import Variable
 import torch
 
 import algos.torch.dcgan.dcgan as dcgan
 from torch.utils.tensorboard import SummaryWriter
 from utils.TrainLevelHelper import get_lvls, get_integer_lvl
-from algos.milp.zelda.program import Program
-from mipaal.utils import cplex_utils, experiment_utils
+from mipaal.utils import cplex_utils
 from mipaal.mip_solvers import MIPFunction
 from algos.milp.zelda.utils import mip_sol_to_gan_out, gan_out_2_coefs
+from algos.milp.zelda.matt_milp_utils import get_mip_program
+from launchers.zelda_generated_lvls_evaluation import evaluate
 
 
-def run():
-    os.chdir(".")
-    print(os.getcwd())
+def evaluate_mip_sol(sol):
+    lvl = sol.reshape((8, 9, 13))
+    lvl = np.argmax(lvl, axis=0)
+    result = evaluate(lvl)
+    print(result)
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--nz', type=int, default=32, help='size of the latent z vector')
-    parser.add_argument('--ngf', type=int, default=64)
-    parser.add_argument('--ndf', type=int, default=64)
-    parser.add_argument('--batchSize', type=int, default=1, help='input batch size')
-    parser.add_argument('--niter', type=int, default=25000, help='number of epochs to train for')
-    parser.add_argument('--lrD', type=float, default=0.00005, help='learning rate for Critic, default=0.00005')
-    parser.add_argument('--lrG', type=float, default=0.00005, help='learning rate for Generator, default=0.00005')
-    parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam. default=0.5')
-    parser.add_argument('--cuda', action='store_true', help='enables cuda')
-    parser.add_argument('--ngpu', type=int, default=1, help='number of GPUs to use')
-    parser.add_argument('--netG', default='', help="path to netG (to continue training)")
-    parser.add_argument('--netD', default='', help="path to netD (to continue training)")
-    parser.add_argument('--clamp_lower', type=float, default=-0.01)
-    parser.add_argument('--clamp_upper', type=float, default=0.01)
-    parser.add_argument('--Diters', type=int, default=5, help='number of D iters per each G iter')
 
-    parser.add_argument('--n_extra_layers', type=int, default=0, help='Number of extra layers on gen and disc')
-    parser.add_argument('--experiment', default=None, help='Where to store samples and models')
-    parser.add_argument('--adam', action='store_true', help='Whether to use adam (default is rmsprop)')
-    parser.add_argument('--problem', type=int, default=0, help='Level examples')
-    parser.add_argument('--json', default=None, help='Json file')
-    parser.add_argument('--seed', type=int, default=999, help='random seed for reproducibility')
-    opt = parser.parse_args()
-
-    # now we need to setup mipfunction
-    experiment_dir = os.path.join(os.path.dirname(__file__), 'milp_gan_end_2_end_experiment')
-    param_file = os.path.join(experiment_dir, 'params.json')
-    params = experiment_utils.Params(param_file)
-    shutil.rmtree(os.path.join(experiment_dir, 'runs'), ignore_errors=True)
-    writer = SummaryWriter(log_dir=os.path.join(experiment_dir, 'runs'))
-    models_dir = os.path.join(experiment_dir, 'models')
+def run(nz,
+        ngf,
+        ndf,
+        batch_size,
+        niter,
+        lrD,
+        lrG,
+        beta1,
+        cuda,
+        ngpu,
+        gpu_id,
+        path_netG,
+        path_netD,
+        clamp_lower,
+        clamp_upper,
+        n_extra_layers,
+        gan_experiment,
+        mipaal_experiment,
+        adam,
+        seed,
+        lvl_data):
+    # Now we need to setup lpfunction
+    shutil.rmtree(os.path.join(mipaal_experiment, 'runs'), ignore_errors=True)
+    writer = SummaryWriter(log_dir=os.path.join(mipaal_experiment, 'runs'))
+    models_dir = os.path.join(mipaal_experiment, 'models')
     os.makedirs(models_dir, exist_ok=True)
     # Step 1. We translate our cplex model to matrices
-    milp_program = Program()
-    cpx = milp_program.get_cplex_prob()  # get the cplex problem from the docplex model
-    cpx.cleanup(epsilon=0.0001)
-    c, G, h, A, b, var_type = cplex_utils.cplex_to_matrices(cpx)
+    # milp_program = Program()
+    # cpx = milp_program.get_cplex_prob()  # get the cplex problem from the docplex model
+    # cpx.cleanup(epsilon=0.0001)
+    # c, G, h, A, b, var_type = cplex_utils.cplex_to_matrices(cpx)
     # _, inds = sympy.Matrix(A).T.rref()
     # A = A[np.array(inds)]
     # b = b[np.array(inds)]
 
-    G = torch.from_numpy(G)
-    h = torch.from_numpy(h)
-    A = torch.from_numpy(A)
-    b = torch.from_numpy(b)
-    Q = 1e-5 * torch.eye(A.shape[1])
-    Q = Q.type_as(G)
+    cpx = get_mip_program()
+    cpx.cleanup(epsilon=0.0001)
+    c, G, h, A, b, var_type = cplex_utils.cplex_to_matrices(cpx)
+    if cuda:
+        G = torch.from_numpy(G).float().cuda(gpu_id)
+        h = torch.from_numpy(h).float().cuda(gpu_id)
+        A = torch.from_numpy(A).float().cuda(gpu_id)
+        b = torch.from_numpy(b).float().cuda(gpu_id)
+        Q = 2e-6 * torch.eye(A.shape[1]).cuda(gpu_id)
+        Q = Q.type_as(G).cuda(gpu_id)
+    else:
+        G = torch.from_numpy(G).float()
+        h = torch.from_numpy(h).float()
+        A = torch.from_numpy(A).float()
+        b = torch.from_numpy(b).float()
+        Q = 2e-6 * torch.eye(A.shape[1])
+        Q = Q.type_as(G)
+    mip_function = MIPFunction(var_type, G, h, A, b)
 
-    if opt.experiment is None:
-        opt.experiment = 'samples'
-    if not os.path.exists(opt.experiment):
-        os.system('mkdir {0}'.format(opt.experiment))
+    os.makedirs(gan_experiment, exist_ok=True)
 
-    print("Manual Seed: ", opt.seed)
-    random.seed(opt.seed)
-    torch.manual_seed(opt.seed)
+    random.seed(seed)
+    torch.manual_seed(seed)
 
-    cudnn.benchmark = True
+    cudnn.benchmark = True  # enable cudnn auto-tuner for finding the optimial set of algorithms.
 
-    opt.cuda = False
-    if torch.cuda.is_available() and not opt.cuda:
+    if torch.cuda.is_available() and not cuda:
         print("WARNING: You have a CUDA device, so you should probably run with --cuda")
 
     map_size = 32
 
-    index2strJson = json.load(open('zelda_index2str.json', 'r'))
+    index2strJson = json.load(open(os.path.join(os.path.dirname(__file__), 'zelda_index2str.json'), 'r'))
     str2index = {}
     for key in index2strJson:
         str2index[index2strJson[key]] = key
-    dataroot = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'Human')
 
     # get all levels and store them in one numpy array
     np_lvls = []
-    lvls = get_lvls(dataroot)
+    lvls = get_lvls(lvl_data)
     for lvl in lvls:
         numpyLvl = get_integer_lvl(lvl, str2index)
         np_lvls.append(numpyLvl)
@@ -110,31 +109,13 @@ def run():
     X = np.array(np_lvls)
     z_dims = len(index2strJson)
 
-    num_batches = X.shape[0] / opt.batchSize
-
-    print("Batch size is " + str(opt.batchSize))
-
-    print("SHAPE ", X.shape)
+    num_batches = X.shape[0] / batch_size
     X_onehot = np.eye(z_dims, dtype='uint8')[X]
-
     X_onehot = np.rollaxis(X_onehot, 3, 1)
-    # print("SHAPE ", X_onehot.shape)
-
     X_train = np.zeros((X.shape[0], z_dims, map_size, map_size))
-
-    X_train[:, 1, :, :] = 1.0  # Fill with empty space
-
-    # Pad part of level so its a square
+    X_train[:, 1, :, :] = 1.0
     X_train[:X.shape[0], :, :X.shape[1], :X.shape[2]] = X_onehot
 
-    ngpu = int(opt.ngpu)
-    nz = int(opt.nz)
-    ngf = int(opt.ngf)
-    ndf = int(opt.ndf)
-
-    n_extra_layers = int(opt.n_extra_layers)
-
-    # custom weights initialization called on netG and netD
     def weights_init(m):
         classname = m.__class__.__name__
         if classname.find('Conv') != -1:
@@ -144,181 +125,166 @@ def run():
             m.bias.data.fill_(0)
 
     netG = dcgan.DCGAN_G(map_size, nz, z_dims, ngf, ngpu, n_extra_layers)
-
     netG.apply(weights_init)
-    if opt.netG != '':  # load checkpoint if needed
-        netG.load_state_dict(torch.load(opt.netG))
-    # print(netG)
+    if path_netG != '':
+        netG.load_state_dict(torch.load(path_netG))
 
     netD = dcgan.DCGAN_D(map_size, nz, z_dims, ndf, ngpu, n_extra_layers)
     netD.apply(weights_init)
+    if path_netD != '':
+        netD.load_state_dict(torch.load(path_netD))
 
-    if opt.netD != '':
-        netD.load_state_dict(torch.load(opt.netD))
-    # print(netD)
-
-    input = torch.FloatTensor(opt.batchSize, z_dims, map_size, map_size)
-    noise = torch.FloatTensor(opt.batchSize, nz, 1, 1)
-    fixed_noise = torch.FloatTensor(opt.batchSize, nz, 1, 1).normal_(0, 1)
+    input = torch.FloatTensor(batch_size, z_dims, map_size, map_size)
+    noise = torch.FloatTensor(batch_size, nz, 1, 1)
+    fixed_noise = torch.FloatTensor(batch_size, nz, 1, 1).normal_(0, 1)
     one = torch.FloatTensor([1])
     mone = one * -1
 
-    def tiles2image(tiles):
-        return plt.get_cmap('rainbow')(tiles / float(z_dims))
-
-    def combine_images(generated_images):
-        num = generated_images.shape[0]
-        width = int(math.sqrt(num))
-        height = int(math.ceil(float(num) / width))
-        shape = generated_images.shape[1:]
-        image = np.zeros((height * shape[0], width * shape[1], shape[2]), dtype=generated_images.dtype)
-        for index, img in enumerate(generated_images):
-            i = int(index / width)
-            j = index % width
-            image[i * shape[0]:(i + 1) * shape[0], j * shape[1]:(j + 1) * shape[1]] = img
-        return image
-
-    if opt.cuda:
-        netD.cuda()
-        netG.cuda()
-        input = input.cuda()
-        one, mone = one.cuda(), mone.cuda()
-        noise, fixed_noise = noise.cuda(), fixed_noise.cuda()
+    if cuda:
+        netD.cuda(gpu_id)
+        netG.cuda(gpu_id)
+        input = input.cuda(gpu_id)
+        one, mone = one.cuda(gpu_id), mone.cuda(gpu_id)
+        noise, fixed_noise = noise.cuda(gpu_id), fixed_noise.cuda(gpu_id)
 
     # setup optimizer
-    if opt.adam:
-        optimizerD = optim.Adam(netD.parameters(), lr=opt.lrD, betas=(opt.beta1, 0.999))
-        optimizerG = optim.Adam(netG.parameters(), lr=opt.lrG, betas=(opt.beta1, 0.999))
+    if adam:
+        optimizerD = optim.Adam(netD.parameters(), lr=lrD, betas=(beta1, 0.999))
+        optimizerG = optim.Adam(netG.parameters(), lr=lrG, betas=(beta1, 0.999))
         print("Using ADAM")
     else:
-        optimizerD = optim.RMSprop(netD.parameters(), lr=opt.lrD)
-        optimizerG = optim.RMSprop(netG.parameters(), lr=opt.lrG)
+        optimizerD = optim.RMSprop(netD.parameters(), lr=lrD)
+        optimizerG = optim.RMSprop(netG.parameters(), lr=lrG)
 
-    gen_iterations = 0
-    for epoch in range(opt.niter):
+    for epoch in range(niter):
+        X_train = X_train[torch.randperm(len(X_train))]  # shuffle the training data
 
-        # ! data_iter = iter(dataloader)
-
-        X_train = X_train[torch.randperm(len(X_train))]
-
+        ############################
+        # (1) Update D network
+        ###########################
+        for p in netG.parameters():
+            p.requires_grad = False
+        for p in netD.parameters():  # reset requires_grad
+            p.requires_grad = True  # they are set to False below in netG update
         i = 0
-        total_time = 0
-        num_running = 0
-        while i < num_batches:  # len(dataloader):
-            ############################
-            # (1) Update D network
-            ###########################
-            for p in netD.parameters():  # reset requires_grad
-                p.requires_grad = True  # they are set to False below in netG update
-
-            # train the discriminator Diters times
-            if gen_iterations < 25 or gen_iterations % 500 == 0:
-                Diters = 100
+        netD.zero_grad()
+        total_errD_fake = 0
+        total_errD_real = 0
+        # clamp parameters to a cube
+        for p in netD.parameters():
+            p.data.clamp_(clamp_lower, clamp_upper)
+        while i < num_batches:
+            data = X_train[i * batch_size:(i + 1) * batch_size]
+            if cuda:
+                real_cpu = torch.FloatTensor(data).cuda(gpu_id)
             else:
-                Diters = opt.Diters
-            j = 0
-            while j < Diters and i < num_batches:  # len(dataloader):
-                j += 1
-
-                # clamp parameters to a cube
-                for p in netD.parameters():
-                    p.data.clamp_(opt.clamp_lower, opt.clamp_upper)
-
-                data = X_train[i * opt.batchSize:(i + 1) * opt.batchSize]
-
-                i += 1
-
                 real_cpu = torch.FloatTensor(data)
+            netD.zero_grad()
+            input.resize_as_(real_cpu).copy_(real_cpu)
+            errD_real = netD(input)
+            errD_real.backward(one)
+            total_errD_real += errD_real.item()
 
-                if (False):
-                    # im = data.cpu().numpy()
-                    print(data.shape)
-                    real_cpu = combine_images(tiles2image(np.argmax(data, axis=1)))
-                    print(real_cpu)
-                    plt.imsave('{0}/real_samples.png'.format(opt.experiment), real_cpu)
-                    exit()
-
-                netD.zero_grad()
-                # batch_size = num_samples #real_cpu.size(0)
-
-                if opt.cuda:
-                    real_cpu = real_cpu.cuda()
-
-                input.resize_as_(real_cpu).copy_(real_cpu)
-                inputv = Variable(input)
-
-                errD_real = netD(inputv)
-                errD_real.backward(one)
-
-                # train with fake
-                noise.resize_(opt.batchSize, nz, 1, 1).normal_(0, 1)
-                noisev = Variable(noise, volatile=True)  # totally freeze netG
-                fake = Variable(netG(noisev).data)
-                inputv = fake
-                errD_fake = netD(inputv)
-                errD_fake.backward(mone)
-                errD = errD_real - errD_fake
-                optimizerD.step()
-
-            ############################
-            # (2) Update G network
-            ###########################
-            for p in netD.parameters():
-                p.requires_grad = False  # to avoid computation
-            netG.zero_grad()
-            # in case our last batch was the tail batch of the dataloader,
-            # make sure we feed a full batch of noise
-            noise.resize_(opt.batchSize, nz, 1, 1).normal_(0, 1)
-            noisev = Variable(noise)
-            fake = netG(noisev)
-            # here we will plug in the mipfunction
-            # Step 2. construct coefficients from the output of the netG
-            pred_coefs = gan_out_2_coefs(fake, c.size)[0, :]
-            mip_function = MIPFunction(var_type, G, h, A, b, verbose=0,
-                                       input_mps=os.path.join(experiment_dir, 'gomory_prob.mps'),
-                                       gomory_limit=params.gomory_limit,
-                                       test_timing=params.test_timing,
-                                       test_integrality=params.test_integrality,
-                                       test_cuts_generated=params.test_cuts_generated)
-            start_time = time.time()
+            # train with fake
+            noise.resize_(batch_size, nz, 1, 1).normal_(0, 1)
+            fake = netG(noise)
+            pred_coefs = gan_out_2_coefs(fake, c.size, gpu_id, cuda)[0]
             x = mip_function(Q, pred_coefs, G, h, A, b)
-            end_time = time.time()
-            total_time += end_time - start_time
-            num_running += 1
+            # evaluate_mip_sol(x.numpy()[0, : 8 * 9 * 13])
             mip_sol_to_gan_out(fake, x)
+            errD_fake = netD(fake)
+            errD_fake.backward(mone)
+            total_errD_fake += errD_fake.item()
+            i += 1
+        optimizerD.step()
 
+        ############################
+        # (2) Update G network
+        ###########################
+        for p in netD.parameters():
+            p.requires_grad = False  # to avoid computation
+        for p in netG.parameters():
+            p.requires_grad = True
+        i = 0
+        netG.zero_grad()
+        total_errG = 0
+        while i < num_batches:
+            noise.resize_(batch_size, nz, 1, 1).normal_(0, 1)
+            fake = netG(noise)
+            # Step 2. construct coefficients from the output of the netG
+            pred_coefs = gan_out_2_coefs(fake, c.size, gpu_id, cuda)[0]
+            x = mip_function(Q, pred_coefs, G, h, A, b)
+            mip_sol_to_gan_out(fake, x)
             errG = netD(fake)
             errG.backward(one)
-            mip_function.release()
-            optimizerG.step()
-            gen_iterations += 1
+            total_errG += errG.item()
+            i += 1
+        optimizerG.step()
 
-            print('[%d/%d][%d/%d][%d] Loss_D: %f Loss_G: %f Loss_D_real: %f Loss_D_fake %f'
-                  % (epoch, opt.niter, i, num_batches, gen_iterations,
-                     errD.data[0], errG.data[0], errD_real.data[0], errD_fake.data[0]))
+        average_errG = total_errG / num_batches
+        average_errD_fake = total_errD_fake / num_batches
+        average_errD_real = total_errD_real / num_batches
 
-        print('average time for running the mip_function: {}'.format(total_time / num_running))
-        if epoch % 10 == 9 or epoch == opt.niter - 1:  # was 500
-            fake = netG(Variable(fixed_noise, volatile=True))
-            pred_coefs = gan_out_2_coefs(fake, c.size)
-            mip_function = MIPFunction(var_type, G, h, A, b, verbose=0,
-                                       input_mps=os.path.join(experiment_dir, 'gomory_prob.mps'),
-                                       gomory_limit=params.gomory_limit,
-                                       test_timing=params.test_timing,
-                                       test_integrality=params.test_integrality,
-                                       test_cuts_generated=params.test_cuts_generated)
-            x = mip_function(Q, pred_coefs, G, h, A, b)
-            mip_sol_to_gan_out(fake, x)
-            mip_function.release()
-            im = fake.data[:, :, :9, :13].cpu().numpy()
-            im = np.argmax(im, axis=1)
+        print('[%d/%d] Loss_G: %f Loss_D_real: %f Loss_D_fake %f'
+              % (epoch, niter, average_errG, average_errD_real, average_errD_fake))
 
-            f = open('{0}/fake_level_epoch_{1}_{2}.json'.format(opt.experiment, epoch, opt.seed), "w")
-            f.write(json.dumps(im[0].tolist()))
-            f.close()
-
-            torch.save(netG.state_dict(), '{0}/netG_epoch_{1}_{2}.pth'.format(opt.experiment, epoch, opt.seed))
+        if epoch % 10 == 9 or epoch == niter - 1:
+            netG.eval()
+            with torch.no_grad():
+                fake = netG(fixed_noise)
+                pred_coefs = gan_out_2_coefs(fake, c.size, gpu_id, cuda)[0]
+                x = mip_function(Q, pred_coefs, G, h, A, b)
+                mip_sol_to_gan_out(fake, x)
+                im = fake.data[:, :, :9, :13].cpu().numpy()
+                im = np.argmax(im, axis=1)
+            with open('{0}/fake_level_epoch_{1}_{2}.json'.format(gan_experiment, epoch, seed), "w") as f:
+                f.write(json.dumps(im[0].tolist()))
+            torch.save(netG.state_dict(), '{0}/netG_epoch_{1}_{2}.pth'.format(gan_experiment, epoch, seed))
 
 
 if __name__ == '__main__':
-    run()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--nz', type=int, default=32, help='size of the latent z vector')
+    parser.add_argument('--ngf', type=int, default=64)
+    parser.add_argument('--ndf', type=int, default=64)
+    parser.add_argument('--batch_size', type=int, default=50, help='input batch size')
+    parser.add_argument('--niter', type=int, default=25000, help='number of epochs to train for')
+    parser.add_argument('--lrD', type=float, default=0.00005, help='learning rate for Critic, default=0.00005')
+    parser.add_argument('--lrG', type=float, default=0.00005, help='learning rate for Generator, default=0.00005')
+    parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam. default=0.5')
+    parser.add_argument('--cuda', action='store_true', help='enables cuda')
+    parser.add_argument('--ngpu', type=int, default=1, help='number of GPUs to use')
+    parser.add_argument('--gpu_id', type=int, default=0, help='the id of the gpu to use')
+    parser.add_argument('--path_netG', default='', help="path to netG (to continue training)")
+    parser.add_argument('--path_netD', default='', help="path to netD (to continue training)")
+    parser.add_argument('--clamp_lower', type=float, default=-0.01)
+    parser.add_argument('--clamp_upper', type=float, default=0.01)
+    parser.add_argument('--n_extra_layers', type=int, default=0, help='Number of extra layers on gen and disc')
+    parser.add_argument('--gan_experiment', help='Where to store samples and models')
+    parser.add_argument('--mipaal_experiment', help='Where to store mipaal parameters file')
+    parser.add_argument('--adam', action='store_true', help='Whether to use adam (default is rmsprop)')
+    parser.add_argument('--seed', type=int, default=999, help='random seed for reproducibility')
+    parser.add_argument('--lvl_data', help='Path to the human designed levels.')
+    opt = parser.parse_args()
+
+    run(opt.nz,
+        opt.ngf,
+        opt.ndf,
+        opt.batch_size,
+        opt.niter,
+        opt.lrD,
+        opt.lrG,
+        opt.beta1,
+        opt.cuda,
+        opt.ngpu,
+        opt.gpu_id,
+        opt.path_netG,
+        opt.path_netD,
+        opt.clamp_lower,
+        opt.clamp_upper,
+        opt.n_extra_layers,
+        opt.gan_experiment,
+        opt.mipaal_experiment,
+        opt.adam,
+        opt.seed,
+        opt.lvl_data)

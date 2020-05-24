@@ -206,7 +206,7 @@ class QPSolvers(Enum):
 
 
 class QPFunction(Function):
-    def __init__(self, eps=1e-12, verbose=0, notImprovedLim=3,
+    def __init__(self, eps=1e-12, verbose=0, notImprovedLim=5,
                  maxIter=20, solver=QPSolvers.PDIPM_BATCHED, model_params = None, custom_solver=None):
         self.eps = eps
         self.verbose = verbose

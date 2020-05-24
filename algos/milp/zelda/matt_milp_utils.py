@@ -199,8 +199,8 @@ def get_mip_program():
     mdl.add_constraint(sum(K) == 1)
     mdl.add_constraint(sum(P) == 1)
     mdl.add_constraint(sum(D) == 1)
-    free_objects = n * m - sum(W)
-    mdl.add_constraint(sum(E1) + sum(E2) + sum(E3) <= 0.6 * free_objects)
+    # free_objects = n * m - sum(W)
+    mdl.add_constraint(sum(E1) + sum(E2) + sum(E3) <= 0.6 * (sum(E1) + sum(E2) + sum(E3) + sum(S)))
 
     add_reachability(mdl, adj, [P], [K, D], [W, D])
 

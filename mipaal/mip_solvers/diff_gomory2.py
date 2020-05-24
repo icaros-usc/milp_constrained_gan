@@ -46,9 +46,9 @@ class MIPFunction(Function):
             self.num_initial_cuts = A.shape[0] + G.shape[0]
 
     def forward(self, Q, p, G, h, A, b):
-        cpx = cplex_utils.matrices_to_cplex(c=p.detach().numpy(),
-                                            G=G.numpy(), h=h.numpy(),
-                                            A=A.numpy(), b=b.numpy(),
+        cpx = cplex_utils.matrices_to_cplex(c=p.detach().numpy().astype('float64'),
+                                            G=G.numpy().astype('float64'), h=h.numpy().astype('float64'),
+                                            A=A.numpy().astype('float64'), b=b.numpy().astype('float64'),
                                             var_type=self.var_type)
         # write to mps file
         cpx.write(self.input_mps)
@@ -151,35 +151,17 @@ class MIPFunction(Function):
 
 
 class LPFunction(Function):
-    def __init__(self, var_type, G, h, A, b, eps=1e-12, verbose=0, notImprovedLim=3, maxIter=20, model_params=None,
-                 custom_solver=None, input_mps="gomory_prob.mps", *args, **kwargs):
+    def __init__(self, verbose=0, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.qp_function = QPFunction(solver=QPSolvers.PDIPM_BATCHED, verbose=True)
-        self.var_type = var_type
-        self.verbose = verbose
-        self.input_mps = input_mps
-        self.G = G
-        self.h = h
-        self.A = A
-        self.b = b
+        self.qp_function = QPFunction(solver=QPSolvers.GUROBI, verbose=verbose)
 
     # @profile
     def forward(self, Q, p, G, h, A, b):
-        return self.qp_function(Q, p, G, h, A, b)
+        sol = self.qp_function(Q, p, G, h, A, b)
+        return sol
 
     # @profile
     def backward(self, dl_dzhat):
         back = self.qp_function.backward(dl_dzhat)
         # del self.qp_function
         return back
-
-    def release(self):
-        del self.qp_function
-
-        del self.var_type
-        del self.input_mps
-
-        del self.G
-        del self.h
-        del self.A
-        del self.b

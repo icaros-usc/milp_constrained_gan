@@ -66,16 +66,25 @@ def forward(Q, p, G, h, A, b, Q_LU, S_LU, R, eps=1e-12, verbose=0, notImprovedLi
             -h, -b if b is not None else None)
     elif solver == KKTSolvers.LU_PARTIAL:
         d = torch.ones(nBatch, nineq).type_as(Q)
+        if Q.is_cuda:
+            d = d.cuda(Q.device)  # also use the same device
         factor_kkt(S_LU, R, d)
+        temp = torch.zeros(nBatch, nineq).type_as(Q)
+        if Q.is_cuda:
+            temp = temp.cuda(Q.device)
         x, s, z, y = solve_kkt(
             Q_LU, d, G, A, S_LU,
-            p, torch.zeros(nBatch, nineq).type_as(Q),
+            p, temp,
             -h, -b if neq > 0 else None)
     elif solver == KKTSolvers.IR_UNOPT:
         D = torch.eye(nineq).repeat(nBatch, 1, 1).type_as(Q)
+        batch_zero0 = torch.zeros(nBatch, nineq).type_as(Q)
+        if Q.is_cuda:
+            D = D.cuda(Q.device)
+            batch_zero0 = batch_zero0.cuda(Q.device)
         x, s, z, y = solve_kkt_ir(
             Q, D, G, A, p,
-            torch.zeros(nBatch, nineq).type_as(Q),
+            batch_zero0,
             -h, -b if b is not None else None)
     else:
         assert False
@@ -163,9 +172,12 @@ def forward(Q, p, G, h, A, b, Q_LU, S_LU, R, eps=1e-12, verbose=0, notImprovedLi
             assert False
 
         # compute centering directions
+        temp1 = torch.ones(nBatch).type_as(Q)
+        if Q.is_cuda:
+            temp1 = temp1.cuda(Q.device)
         alpha = torch.min(torch.min(get_step(z, dz_aff),
                                     get_step(s, ds_aff)),
-                          torch.ones(nBatch).type_as(Q))
+                          temp1)
         alpha_nineq = alpha.repeat(nineq, 1).t()
         t1 = s + alpha_nineq * ds_aff
         t2 = z + alpha_nineq * dz_aff
@@ -177,6 +189,12 @@ def forward(Q, p, G, h, A, b, Q_LU, S_LU, R, eps=1e-12, verbose=0, notImprovedLi
         rs = ((-mu * sig).repeat(nineq, 1).t() + ds_aff * dz_aff) / s
         rz = torch.zeros(nBatch, nineq).type_as(Q)
         ry = torch.zeros(nBatch, neq).type_as(Q) if neq > 0 else torch.Tensor()
+
+        if Q.is_cuda:
+            rx = rx.cuda(Q.device)
+            rs = rs.cuda(Q.device)
+            rz = rz.cuda(Q.device)
+            ry = ry.cuda(Q.device)
 
         if solver == KKTSolvers.LU_FULL:
             D = bdiag(d)
@@ -196,9 +214,12 @@ def forward(Q, p, G, h, A, b, Q_LU, S_LU, R, eps=1e-12, verbose=0, notImprovedLi
         ds = ds_aff + ds_cor
         dz = dz_aff + dz_cor
         dy = dy_aff + dy_cor if neq > 0 else None
+        temp2 = torch.ones(nBatch).type_as(Q)
+        if Q.is_cuda:
+            temp2 = temp2.cuda(Q.device)
         alpha = torch.min(0.999 * torch.min(get_step(z, dz),
                                             get_step(s, ds)),
-                          torch.ones(nBatch).type_as(Q))
+                          temp2)
         alpha_nineq = alpha.repeat(nineq, 1).t()
         alpha_neq = alpha.repeat(neq, 1).t() if neq > 0 else None
         alpha_nz = alpha.repeat(nz, 1).t()
@@ -252,8 +273,13 @@ def solve_kkt_ir(Q, D, G, A, rx, rs, rz, ry, niter=1):
     nineq, nz, neq, nBatch = get_sizes(G, A)
 
     eps = 1e-7
-    Q_tilde = Q + eps * torch.eye(nz).type_as(Q).repeat(nBatch, 1, 1)
-    D_tilde = D + eps * torch.eye(nineq).type_as(Q).repeat(nBatch, 1, 1)
+    eye_nz = torch.eye(nz).type_as(Q).repeat(nBatch, 1, 1)
+    eye_nineq = torch.eye(nineq).type_as(Q).repeat(nBatch, 1, 1)
+    if Q.is_cuda:
+        eye_nz = eye_nz.cuda(Q.device)
+        eye_nineq = eye_nineq.cuda(Q.device)
+    Q_tilde = Q + eps * eye_nz
+    D_tilde = D + eps * eye_nineq
 
     dx, ds, dz, dy = factor_solve_kkt_reg(
         Q_tilde, D_tilde, G, A, rx, rs, rz, ry, eps)
@@ -280,18 +306,28 @@ def factor_solve_kkt_reg(Q_tilde, D, G, A, rx, rs, rz, ry, eps):
     nineq, nz, neq, nBatch = get_sizes(G, A)
 
     H_ = torch.zeros(nBatch, nz + nineq, nz + nineq).type_as(Q_tilde)
+    if Q_tilde.is_cuda:
+        H_ = H_.cuda(Q_tilde.device)
     H_[:, :nz, :nz] = Q_tilde
     H_[:, -nineq:, -nineq:] = D
     if neq > 0:
         # H_ = torch.cat([torch.cat([Q, torch.zeros(nz,nineq).type_as(Q)], 1),
         # torch.cat([torch.zeros(nineq, nz).type_as(Q), D], 1)], 0)
-        A_ = torch.cat([torch.cat([G, torch.eye(nineq).type_as(Q_tilde).repeat(nBatch, 1, 1)], 2),
-                        torch.cat([A, torch.zeros(nBatch, neq, nineq).type_as(Q_tilde)], 2)], 1)
+        eye_nineq = torch.eye(nineq).type_as(Q_tilde).repeat(nBatch, 1, 1)
+        zero_batch = torch.zeros(nBatch, neq, nineq).type_as(Q_tilde)
+        if Q_tilde.is_cuda:
+            eye_nineq = eye_nineq.cuda(Q_tilde.device)
+            zero_batch = zero_batch.cuda(Q_tilde.device)
+        A_ = torch.cat([torch.cat([G, eye_nineq], 2),
+                        torch.cat([A, zero_batch], 2)], 1)
         g_ = torch.cat([rx, rs], 1)
         h_ = torch.cat([rz, ry], 1)
     else:
+        eye_nineq = torch.eye(nineq).type_as(Q_tilde).repeat(nBatch, 1, 1)
+        if Q_tilde.is_cuda:
+            eye_nineq = eye_nineq.cuda(Q_tilde.device)
         A_ = torch.cat(
-            [G, torch.eye(nineq).type_as(Q_tilde).repeat(nBatch, 1, 1)], 2)
+            [G, eye_nineq], 2)
         g_ = torch.cat([rx, rs], 1)
         h_ = rz
 
@@ -301,7 +337,10 @@ def factor_solve_kkt_reg(Q_tilde, D, G, A, rx, rs, rz, ry, eps):
     invH_g_ = g_.lu_solve(*H_LU)
 
     S_ = torch.bmm(A_, invH_A_)
-    S_ -= eps * torch.eye(neq + nineq).type_as(Q_tilde).repeat(nBatch, 1, 1)
+    eye_nineq_neq = torch.eye(neq + nineq).type_as(Q_tilde).repeat(nBatch, 1, 1)
+    if Q_tilde.is_cuda:
+        eye_nineq_neq = eye_nineq_neq.cuda(Q_tilde.device)
+    S_ -= eps * eye_nineq_neq
     S_LU = btrifact_hack(S_)
     t_ = torch.bmm(invH_g_.unsqueeze(1), A_.transpose(1, 2)).squeeze(1) - h_
     w_ = -t_.lu_solve(*S_LU)
@@ -402,6 +441,8 @@ a non-zero diagonal.
     R = G_invQ_GT.clone()
     S_LU_pivots = torch.IntTensor(range(1, 1 + neq + nineq)).unsqueeze(0) \
         .repeat(nBatch, 1).type_as(Q).int()
+    if Q.is_cuda:
+        S_LU_pivots = S_LU_pivots.cuda(Q.device)
     if neq > 0:
         invQ_AT = A.transpose(1, 2).lu_solve(*Q_LU)
         A_invQ_AT = torch.bmm(A, invQ_AT)
@@ -418,6 +459,8 @@ a non-zero diagonal.
         T = G_invQ_AT.transpose(1, 2).lu_solve(*LU_A_invQ_AT)
         S_LU_12 = U_A_invQ_AT.bmm(T)
         S_LU_22 = torch.zeros(nBatch, nineq, nineq).type_as(Q)
+        if Q.is_cuda:
+            S_LU_22.cuda(Q.device)
         S_LU_data = torch.cat((torch.cat((S_LU_11, S_LU_12), 2),
                                torch.cat((S_LU_21, S_LU_22), 2)),
                               1)
@@ -426,6 +469,8 @@ a non-zero diagonal.
         R -= G_invQ_AT.bmm(T)
     else:
         S_LU_data = torch.zeros(nBatch, nineq, nineq).type_as(Q)
+        if Q.is_cuda:
+            S_LU_data = S_LU_data.cuda(Q.device)
 
     S_LU = [S_LU_data, S_LU_pivots]
     return Q_LU, S_LU, R

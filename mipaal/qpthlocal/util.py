@@ -35,8 +35,12 @@ def get_sizes(G, A=None):
 
 def bdiag(d):
     nBatch, sz = d.size()
+
     D = torch.zeros(nBatch, sz, sz).type_as(d)
     I = torch.eye(sz).repeat(nBatch, 1, 1).type_as(d).byte()
+    if d.is_cuda:
+        D = D.cuda(d.device)
+        I = I.cuda(d.device)
     D[I] = d.squeeze().view(-1)
     return D
 
