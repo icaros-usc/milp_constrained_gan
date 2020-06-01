@@ -1,5 +1,6 @@
 """We want to compute the difference between the learned levels and the human designed levels https://dl.acm.org/doi/pdf/10.1145/3321707.3321781"""
 
+import copy
 import os
 
 import numpy as np
@@ -28,11 +29,13 @@ def count_pattern_distribution(lvls, f_h, f_w):
 
 
 def count2dist(count_patterns):
+    count_dist = copy.deepcopy(count_patterns)
     num_sum = 0
-    for pattern in count_patterns:
-        num_sum += count_patterns[pattern]
-    for pattern in count_patterns:
-        count_patterns[pattern] = count_patterns[pattern] / num_sum
+    for pattern in count_dist:
+        num_sum += count_dist[pattern]
+    for pattern in count_dist:
+        count_dist[pattern] = count_dist[pattern] / num_sum
+    return count_dist
 
 
 def compute_kl(dist1, dist2):
@@ -44,45 +47,42 @@ def compute_kl(dist1, dist2):
     return kl
 
 
-def run():
+def run(pattern_h,
+        pattern_w,
+        data_root,
+        to_stats,
+        human_root):
     # first count all appearred tile patterns in human designed levels
-    human_root = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'Human_Json')
-    milp_gan_two_stage_root = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda',
-                                           'fake_milp_gan_obj')
-    gan_generated_root = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'fake')
+    human_data_path = os.path.join(data_root, human_root)
+    human_valid_lvls = get_valid_lvls(human_data_path)
+    human_patterns = count_pattern_distribution(human_valid_lvls, pattern_h, pattern_w)
+    human_pattern_dist = count2dist(human_patterns)
 
-    human_lvls = get_valid_lvls(human_root)
-    two_stage_lvls = get_valid_lvls(milp_gan_two_stage_root)
-    valid_gan_lvls = get_valid_lvls(gan_generated_root)
-
-    f_h = 2
-    f_w = 2
-    all_human_patterns = count_pattern_distribution(human_lvls, f_h, f_w)
-    all_two_stage_patterns = count_pattern_distribution(two_stage_lvls, f_h, f_w)
-    all_valid_gan_patterns = count_pattern_distribution(valid_gan_lvls, f_h, f_w)
-
-    new_two_stage_patterns = {}
-    new_valid_gan_patterns = {}
-    for pattern in all_human_patterns:
-        if pattern in all_two_stage_patterns:
-            new_two_stage_patterns[pattern] = all_two_stage_patterns[pattern]
-        else:
-            new_two_stage_patterns[pattern] = 1e-5
-        if pattern in all_valid_gan_patterns:
-            new_valid_gan_patterns[pattern] = all_valid_gan_patterns[pattern]
-        else:
-            new_valid_gan_patterns[pattern] = 1e-5
-
-    count2dist(new_two_stage_patterns)
-    count2dist(new_valid_gan_patterns)
-    count2dist(all_human_patterns)
-
-    kl_h_t = compute_kl(all_human_patterns, new_two_stage_patterns)
-    kl_h_g = compute_kl(all_human_patterns, new_valid_gan_patterns)
-
-    print('KL divergence between human and two stage: {}'.format(kl_h_t))
-    print('KL divergence between human and gan: {}'.format(kl_h_g))
+    for key in to_stats:
+        cur_data_path = os.path.join(data_root, to_stats[key][0])
+        cur_valid_lvls = get_valid_lvls(cur_data_path)
+        cur_patterns = count_pattern_distribution(cur_valid_lvls, pattern_h, pattern_w)
+        cur_human_like_patterns = {}
+        for pattern in human_patterns:
+            if pattern in cur_patterns:
+                cur_human_like_patterns[pattern] = cur_patterns[pattern]
+            else:
+                cur_human_like_patterns[pattern] = 1e-5
+        cur_pattern_dist = count2dist(cur_human_like_patterns)
+        kl = compute_kl(human_pattern_dist, cur_pattern_dist)
+        print('{}: {}'.format(key, kl))
 
 
 if __name__ == '__main__':
-    run()
+    pattern_h = 2
+    pattern_w = 2
+    data_root = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda')
+
+    to_stats = {'two-stage': ['zelda_better_gan_3299'], 'plain gan': ['zelda_better_gan_no_fix'],
+                'end-2-end_fix': ['zelda_better_end2end_3299'], 'end-2-end': ['zelda_better_end2end_3299_no_fix']}
+    human_root = 'Human_Json'
+    run(pattern_h,
+        pattern_w,
+        data_root,
+        to_stats,
+        human_root)
