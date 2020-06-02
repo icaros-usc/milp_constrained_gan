@@ -82,7 +82,9 @@ def evaluate(lvl):
     if result_door == 'fail':
         return False
 
-    return True
+    _, _, key_door_path = search(grid, goal_key, goal_door, cost, delta, heuristic_door)
+
+    return True, key_door_path
 
 
 def compute_duplicated_lvls(lvl_lst):
@@ -109,7 +111,7 @@ def run(data_path):
         num_levels += 1
         with open(os.path.join(data_path, lvl), 'r') as f:
             lvlJson = json.load(f)
-            if_valid = evaluate(lvlJson)
+            if_valid, _ = evaluate(lvlJson)
 
             if if_valid:
                 all_valid_lvs.append(lvlJson)
