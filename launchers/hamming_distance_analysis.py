@@ -4,11 +4,10 @@ import json
 import os
 from copy import deepcopy
 
-import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
 
-from launchers.zelda_generated_lvls_evaluation import evaluate
+from launchers.zelda_duplicated_lvls_evaluation import evaluate
 
 
 def get_valid_lvls(data_root):
@@ -20,6 +19,24 @@ def get_valid_lvls(data_root):
 
             if if_valid:
                 res.append(lvlJson)
+    return res
+
+
+def get_valid_and_unique_lvls(data_root):
+    res = []
+    for lvl in os.listdir(data_root):
+        with open(os.path.join(data_root, lvl), 'r') as f:
+            lvlJson = json.load(f)
+            if_valid = evaluate(lvlJson)
+
+            if if_valid:
+                if_dup = False
+                for already_lvl in res:
+                    if already_lvl == lvlJson:
+                        if_dup = True
+                        break
+                if not if_dup:
+                    res.append(lvlJson)
     return res
 
 
@@ -56,27 +73,17 @@ def do_stats(valid_lvls):
     return langs, counts
 
 
-def run():
-    gan_generated_root = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'fake')
-    milp_gan_two_stage_root = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda',
-                                           'fake_milp_gan_obj')
-    human_generated_root = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'Human_Json')
-
-    # first get all valid levels generated
-    all_valid_gan_lvls = get_valid_lvls(gan_generated_root)
-    all_two_stage_lvls = get_valid_lvls(milp_gan_two_stage_root)
-    all_human_lvls = get_valid_lvls(human_generated_root)
-
-    gan_langs, gan_counts = do_stats(all_valid_gan_lvls)
-    two_stage_langs, two_stage_counts = do_stats(all_two_stage_lvls)
-    human_langs, human_counts = do_stats(all_human_lvls)
-
+def run(data_root,
+        to_stats):
     fig, ax = plt.subplots(figsize=(6, 4.5))
-    # ax = fig.add_axes([0, 0, 1, 1])
-    ax.bar(gan_langs, gan_counts, color='#ff9f4a', edgecolor='#ff871d', alpha=0.7, width=1, label='GAN')
-    ax.bar(human_langs, human_counts, color='#5699c5', edgecolor='#2d7fb8', alpha=0.7, width=1, label='Human')
-    ax.bar(two_stage_langs, two_stage_counts, color='#60b761', edgecolor='#3aa539', alpha=0.7, width=1,
-           label='GAN+MILP (Two-stage)')
+    for key in to_stats:
+        cur_path = os.path.join(data_root, to_stats[key]['path'])
+        cur_valid_lvls = get_valid_lvls(cur_path)
+        cur_langs, cur_counts = do_stats(cur_valid_lvls)
+
+        ax.bar(cur_langs, cur_counts, color=to_stats[key]['color'], edgecolor=to_stats[key]['edgecolor'],
+               alpha=0.7, width=1, label=key)
+
     ax.set_ylabel('Count')
     ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     ax.set_xlabel('Average Hamming Distance')
@@ -87,4 +94,11 @@ def run():
 
 
 if __name__ == '__main__':
-    run()
+    data_root = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda')
+    to_stats = {
+        'GAN': {'path': 'zelda_better_gan_no_fix', 'color': '#ff9f4a', 'edgecolor': '#ff871d'},
+        'Human': {'path': 'Human_Json', 'color': '#5699c5', 'edgecolor': '#2d7fb8'},
+        'GAN+MILP (Two-stage)': {'path': 'zelda_better_gan', 'color': '#60b761', 'edgecolor': '#3aa539'}
+    }
+    run(data_root,
+        to_stats)
