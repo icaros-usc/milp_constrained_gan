@@ -27,7 +27,7 @@ def search(grid, init, goal, cost, delta, heuristic):
                     visited[x2][y2] = 1
 
         if not path:
-            return 'fail', expand
+            return 'fail', expand, 100000
 
         del minList[:]
         minList = min(path)
@@ -38,7 +38,7 @@ def search(grid, init, goal, cost, delta, heuristic):
         expand[x][y] = val
         val += 1
 
-    return minList, expand
+    return minList, expand, g
 
 
 if __name__ == '__main__':
@@ -64,8 +64,10 @@ if __name__ == '__main__':
              [0, 1]]
 
     delta_name = ['^', '<', 'V', '>']
-    path, expand = search(grid, init, goal, cost, delta, heuristic)
+    path, expand, path_length = search(grid, init, goal, cost, delta, heuristic)
 
     print(path)
 
     print(expand)
+
+    print(path_length)

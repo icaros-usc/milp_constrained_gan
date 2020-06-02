@@ -1,7 +1,7 @@
 import torch
 
 
-def gan_out_2_coefs(gan_output, len_coeff, gpu_id, if_cuda=False):
+def gan_out_2_coefs(gan_output, len_coeff, gpu_id=0, if_cuda=False):
     """Use this function to translate the output of generator to the coefficients."""
     out = torch.zeros(gan_output.shape[0], len_coeff)
     if if_cuda:

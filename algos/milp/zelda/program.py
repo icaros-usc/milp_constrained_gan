@@ -2,10 +2,11 @@ from docplex.mp.model import Model
 
 
 class Program(object):
-    def __init__(self):
+    def __init__(self, partial=False):
         """This class is a class for storing all the information about the milp we will use."""
         self._model = Model(name='zelda_heuristic_constraints')
         self._grid_width = 13
+        self._is_partial = partial
         self._grid_height = 9
         self._build_program()
         self._model.print_information()
@@ -227,162 +228,163 @@ class Program(object):
         self.P = []
         for i in range(N):
             self.P.append(self._model.integer_var(name='p_{}'.format(i), ub=1))
-        # X graph try to encode that the palyer should be able to reach the key
-        # 1. super source node to every node inside
-        Xs = []
-        for i in range(N):
-            Xs.append(self._model.integer_var(name='xs{}'.format(i), ub=1))
-        # 2. super sind node from every node insied
-        Xt = []
-        for i in range(N):
-            Xt.append(self._model.integer_var(name='x{}t'.format(i), ub=1))
+        if not self._is_partial:
+            # X graph try to encode that the palyer should be able to reach the key
+            # 1. super source node to every node inside
+            Xs = []
+            for i in range(N):
+                Xs.append(self._model.integer_var(name='xs{}'.format(i), ub=1))
+            # 2. super sind node from every node insied
+            Xt = []
+            for i in range(N):
+                Xt.append(self._model.integer_var(name='x{}t'.format(i), ub=1))
 
-        # 3. internal node how much in how much out
+            # 3. internal node how much in how much out
 
-        def add_new_var(arry: list, id: str):
-            if len(self._model.find_matching_vars(id)) == 0:
-                arry.append(self._model.integer_var(name=id, ub=1))
-            else:
-                arry.append(self._model.find_matching_vars(id)[0])
+            def add_new_var(arry: list, id: str):
+                if len(self._model.find_matching_vars(id)) == 0:
+                    arry.append(self._model.integer_var(name=id, ub=1))
+                else:
+                    arry.append(self._model.find_matching_vars(id)[0])
 
-        Xin = []
-        Xout = []
-        for i in range(N):
-            xin = [Xs[i]]
-            xout = [Xt[i]]
-            if i == 0:
-                add_new_var(xin, 'x{}{}'.format(13, i))
-                add_new_var(xin, 'x{}{}'.format(1, i))
-                add_new_var(xout, 'x{}{}'.format(i, 13))
-                add_new_var(xout, 'x{}{}'.format(i, 1))
-            elif i == 12:
-                add_new_var(xin, 'x{}{}'.format(11, i))
-                add_new_var(xin, 'x{}{}'.format(25, i))
-                add_new_var(xout, 'x{}{}'.format(i, 11))
-                add_new_var(xout, 'x{}{}'.format(i, 25))
-            elif i == 116:
-                add_new_var(xin, 'x{}{}'.format(115, i))
-                add_new_var(xin, 'x{}{}'.format(103, i))
-                add_new_var(xout, 'x{}{}'.format(i, 115))
-                add_new_var(xout, 'x{}{}'.format(i, 103))
-            elif i == 104:
-                add_new_var(xin, 'x{}{}'.format(105, i))
-                add_new_var(xin, 'x{}{}'.format(91, i))
-                add_new_var(xout, 'x{}{}'.format(i, 105))
-                add_new_var(xout, 'x{}{}'.format(i, 91))
-            elif 0 < i < 12:
-                add_new_var(xin, 'x{}{}'.format(i - 1, i))
-                add_new_var(xin, 'x{}{}'.format(i + 1, i))
-                add_new_var(xin, 'x{}{}'.format(i + 13, i))
-                add_new_var(xout, 'x{}{}'.format(i, i - 1))
-                add_new_var(xout, 'x{}{}'.format(i, i + 1))
-                add_new_var(xout, 'x{}{}'.format(i, i + 13))
-            elif 104 < i < 116:
-                add_new_var(xin, 'x{}{}'.format(i - 1, i))
-                add_new_var(xin, 'x{}{}'.format(i + 1, i))
-                add_new_var(xin, 'x{}{}'.format(i - 13, i))
-                add_new_var(xout, 'x{}{}'.format(i, i - 1))
-                add_new_var(xout, 'x{}{}'.format(i, i + 1))
-                add_new_var(xout, 'x{}{}'.format(i, i - 13))
-            elif i % 13 == 0:
-                add_new_var(xin, 'x{}{}'.format(i - 13, i))
-                add_new_var(xin, 'x{}{}'.format(i + 1, i))
-                add_new_var(xin, 'x{}{}'.format(i + 13, i))
-                add_new_var(xout, 'x{}{}'.format(i, i - 13))
-                add_new_var(xout, 'x{}{}'.format(i, i + 1))
-                add_new_var(xout, 'x{}{}'.format(i, i + 13))
-            elif i % 13 == 12:
-                add_new_var(xin, 'x{}{}'.format(i - 13, i))
-                add_new_var(xin, 'x{}{}'.format(i - 1, i))
-                add_new_var(xin, 'x{}{}'.format(i + 13, i))
-                add_new_var(xout, 'x{}{}'.format(i, i - 13))
-                add_new_var(xout, 'x{}{}'.format(i, i + 13))
-                add_new_var(xout, 'x{}{}'.format(i, i - 1))
-            else:  # for internal nodes of internal nodes
-                add_new_var(xin, 'x{}{}'.format(i - 13, i))
-                add_new_var(xin, 'x{}{}'.format(i + 13, i))
-                add_new_var(xin, 'x{}{}'.format(i - 1, i))
-                add_new_var(xin, 'x{}{}'.format(i + 1, i))
-                add_new_var(xout, 'x{}{}'.format(i, i - 13))
-                add_new_var(xout, 'x{}{}'.format(i, i + 13))
-                add_new_var(xout, 'x{}{}'.format(i, i - 1))
-                add_new_var(xout, 'x{}{}'.format(i, i + 1))
-            Xin.append(xin)
-            Xout.append(xout)
-        # Y graph try to encode that the palyer should be able to reach the door
-        # 1. super source node to every node inside
-        Ys = []
-        for i in range(N):
-            Ys.append(self._model.integer_var(name='ys{}'.format(i), ub=1))
-        # 2. super sind node from every node insied
-        Yt = []
-        for i in range(N):
-            Yt.append(self._model.integer_var(name='y{}t'.format(i), ub=1))
-        # 3. internal node how much in how much out
-        Yin = []
-        Yout = []
-        for i in range(N):
-            yin = [Ys[i]]
-            yout = [Yt[i]]
-            if i == 0:
-                add_new_var(yin, 'y{}{}'.format(13, i))
-                add_new_var(yin, 'y{}{}'.format(1, i))
-                add_new_var(yout, 'y{}{}'.format(i, 13))
-                add_new_var(yout, 'y{}{}'.format(i, 1))
-            elif i == 12:
-                add_new_var(yin, 'y{}{}'.format(11, i))
-                add_new_var(yin, 'y{}{}'.format(25, i))
-                add_new_var(yout, 'y{}{}'.format(i, 11))
-                add_new_var(yout, 'y{}{}'.format(i, 25))
-            elif i == 116:
-                add_new_var(yin, 'y{}{}'.format(115, i))
-                add_new_var(yin, 'y{}{}'.format(103, i))
-                add_new_var(yout, 'y{}{}'.format(i, 115))
-                add_new_var(yout, 'y{}{}'.format(i, 103))
-            elif i == 104:
-                add_new_var(yin, 'y{}{}'.format(105, i))
-                add_new_var(yin, 'y{}{}'.format(91, i))
-                add_new_var(yout, 'y{}{}'.format(i, 105))
-                add_new_var(yout, 'y{}{}'.format(i, 91))
-            elif 0 < i < 12:
-                add_new_var(yin, 'y{}{}'.format(i - 1, i))
-                add_new_var(yin, 'y{}{}'.format(i + 1, i))
-                add_new_var(yin, 'y{}{}'.format(i + 13, i))
-                add_new_var(yout, 'y{}{}'.format(i, i - 1))
-                add_new_var(yout, 'y{}{}'.format(i, i + 1))
-                add_new_var(yout, 'y{}{}'.format(i, i + 13))
-            elif 104 < i < 116:
-                add_new_var(yin, 'y{}{}'.format(i - 1, i))
-                add_new_var(yin, 'y{}{}'.format(i + 1, i))
-                add_new_var(yin, 'y{}{}'.format(i - 13, i))
-                add_new_var(yout, 'y{}{}'.format(i, i - 1))
-                add_new_var(yout, 'y{}{}'.format(i, i + 1))
-                add_new_var(yout, 'y{}{}'.format(i, i - 13))
-            elif i % 13 == 0:
-                add_new_var(yin, 'y{}{}'.format(i - 13, i))
-                add_new_var(yin, 'y{}{}'.format(i + 1, i))
-                add_new_var(yin, 'y{}{}'.format(i + 13, i))
-                add_new_var(yout, 'y{}{}'.format(i, i - 13))
-                add_new_var(yout, 'y{}{}'.format(i, i + 1))
-                add_new_var(yout, 'y{}{}'.format(i, i + 13))
-            elif i % 13 == 12:
-                add_new_var(yin, 'y{}{}'.format(i - 13, i))
-                add_new_var(yin, 'y{}{}'.format(i - 1, i))
-                add_new_var(yin, 'y{}{}'.format(i + 13, i))
-                add_new_var(yout, 'y{}{}'.format(i, i - 13))
-                add_new_var(yout, 'y{}{}'.format(i, i + 13))
-                add_new_var(yout, 'y{}{}'.format(i, i - 1))
-            else:  # for internal nodes of internal nodes
-                add_new_var(yin, 'y{}{}'.format(i - 13, i))
-                add_new_var(yin, 'y{}{}'.format(i + 13, i))
-                add_new_var(yin, 'y{}{}'.format(i - 1, i))
-                add_new_var(yin, 'y{}{}'.format(i + 1, i))
-                add_new_var(yout, 'y{}{}'.format(i, i - 13))
-                add_new_var(yout, 'y{}{}'.format(i, i + 13))
-                add_new_var(yout, 'y{}{}'.format(i, i - 1))
-                add_new_var(yout, 'y{}{}'.format(i, i + 1))
-            Yin.append(yin)
-            Yout.append(yout)
+            Xin = []
+            Xout = []
+            for i in range(N):
+                xin = [Xs[i]]
+                xout = [Xt[i]]
+                if i == 0:
+                    add_new_var(xin, 'x{}{}'.format(13, i))
+                    add_new_var(xin, 'x{}{}'.format(1, i))
+                    add_new_var(xout, 'x{}{}'.format(i, 13))
+                    add_new_var(xout, 'x{}{}'.format(i, 1))
+                elif i == 12:
+                    add_new_var(xin, 'x{}{}'.format(11, i))
+                    add_new_var(xin, 'x{}{}'.format(25, i))
+                    add_new_var(xout, 'x{}{}'.format(i, 11))
+                    add_new_var(xout, 'x{}{}'.format(i, 25))
+                elif i == 116:
+                    add_new_var(xin, 'x{}{}'.format(115, i))
+                    add_new_var(xin, 'x{}{}'.format(103, i))
+                    add_new_var(xout, 'x{}{}'.format(i, 115))
+                    add_new_var(xout, 'x{}{}'.format(i, 103))
+                elif i == 104:
+                    add_new_var(xin, 'x{}{}'.format(105, i))
+                    add_new_var(xin, 'x{}{}'.format(91, i))
+                    add_new_var(xout, 'x{}{}'.format(i, 105))
+                    add_new_var(xout, 'x{}{}'.format(i, 91))
+                elif 0 < i < 12:
+                    add_new_var(xin, 'x{}{}'.format(i - 1, i))
+                    add_new_var(xin, 'x{}{}'.format(i + 1, i))
+                    add_new_var(xin, 'x{}{}'.format(i + 13, i))
+                    add_new_var(xout, 'x{}{}'.format(i, i - 1))
+                    add_new_var(xout, 'x{}{}'.format(i, i + 1))
+                    add_new_var(xout, 'x{}{}'.format(i, i + 13))
+                elif 104 < i < 116:
+                    add_new_var(xin, 'x{}{}'.format(i - 1, i))
+                    add_new_var(xin, 'x{}{}'.format(i + 1, i))
+                    add_new_var(xin, 'x{}{}'.format(i - 13, i))
+                    add_new_var(xout, 'x{}{}'.format(i, i - 1))
+                    add_new_var(xout, 'x{}{}'.format(i, i + 1))
+                    add_new_var(xout, 'x{}{}'.format(i, i - 13))
+                elif i % 13 == 0:
+                    add_new_var(xin, 'x{}{}'.format(i - 13, i))
+                    add_new_var(xin, 'x{}{}'.format(i + 1, i))
+                    add_new_var(xin, 'x{}{}'.format(i + 13, i))
+                    add_new_var(xout, 'x{}{}'.format(i, i - 13))
+                    add_new_var(xout, 'x{}{}'.format(i, i + 1))
+                    add_new_var(xout, 'x{}{}'.format(i, i + 13))
+                elif i % 13 == 12:
+                    add_new_var(xin, 'x{}{}'.format(i - 13, i))
+                    add_new_var(xin, 'x{}{}'.format(i - 1, i))
+                    add_new_var(xin, 'x{}{}'.format(i + 13, i))
+                    add_new_var(xout, 'x{}{}'.format(i, i - 13))
+                    add_new_var(xout, 'x{}{}'.format(i, i + 13))
+                    add_new_var(xout, 'x{}{}'.format(i, i - 1))
+                else:  # for internal nodes of internal nodes
+                    add_new_var(xin, 'x{}{}'.format(i - 13, i))
+                    add_new_var(xin, 'x{}{}'.format(i + 13, i))
+                    add_new_var(xin, 'x{}{}'.format(i - 1, i))
+                    add_new_var(xin, 'x{}{}'.format(i + 1, i))
+                    add_new_var(xout, 'x{}{}'.format(i, i - 13))
+                    add_new_var(xout, 'x{}{}'.format(i, i + 13))
+                    add_new_var(xout, 'x{}{}'.format(i, i - 1))
+                    add_new_var(xout, 'x{}{}'.format(i, i + 1))
+                Xin.append(xin)
+                Xout.append(xout)
+            # Y graph try to encode that the palyer should be able to reach the door
+            # 1. super source node to every node inside
+            Ys = []
+            for i in range(N):
+                Ys.append(self._model.integer_var(name='ys{}'.format(i), ub=1))
+            # 2. super sind node from every node insied
+            Yt = []
+            for i in range(N):
+                Yt.append(self._model.integer_var(name='y{}t'.format(i), ub=1))
+            # 3. internal node how much in how much out
+            Yin = []
+            Yout = []
+            for i in range(N):
+                yin = [Ys[i]]
+                yout = [Yt[i]]
+                if i == 0:
+                    add_new_var(yin, 'y{}{}'.format(13, i))
+                    add_new_var(yin, 'y{}{}'.format(1, i))
+                    add_new_var(yout, 'y{}{}'.format(i, 13))
+                    add_new_var(yout, 'y{}{}'.format(i, 1))
+                elif i == 12:
+                    add_new_var(yin, 'y{}{}'.format(11, i))
+                    add_new_var(yin, 'y{}{}'.format(25, i))
+                    add_new_var(yout, 'y{}{}'.format(i, 11))
+                    add_new_var(yout, 'y{}{}'.format(i, 25))
+                elif i == 116:
+                    add_new_var(yin, 'y{}{}'.format(115, i))
+                    add_new_var(yin, 'y{}{}'.format(103, i))
+                    add_new_var(yout, 'y{}{}'.format(i, 115))
+                    add_new_var(yout, 'y{}{}'.format(i, 103))
+                elif i == 104:
+                    add_new_var(yin, 'y{}{}'.format(105, i))
+                    add_new_var(yin, 'y{}{}'.format(91, i))
+                    add_new_var(yout, 'y{}{}'.format(i, 105))
+                    add_new_var(yout, 'y{}{}'.format(i, 91))
+                elif 0 < i < 12:
+                    add_new_var(yin, 'y{}{}'.format(i - 1, i))
+                    add_new_var(yin, 'y{}{}'.format(i + 1, i))
+                    add_new_var(yin, 'y{}{}'.format(i + 13, i))
+                    add_new_var(yout, 'y{}{}'.format(i, i - 1))
+                    add_new_var(yout, 'y{}{}'.format(i, i + 1))
+                    add_new_var(yout, 'y{}{}'.format(i, i + 13))
+                elif 104 < i < 116:
+                    add_new_var(yin, 'y{}{}'.format(i - 1, i))
+                    add_new_var(yin, 'y{}{}'.format(i + 1, i))
+                    add_new_var(yin, 'y{}{}'.format(i - 13, i))
+                    add_new_var(yout, 'y{}{}'.format(i, i - 1))
+                    add_new_var(yout, 'y{}{}'.format(i, i + 1))
+                    add_new_var(yout, 'y{}{}'.format(i, i - 13))
+                elif i % 13 == 0:
+                    add_new_var(yin, 'y{}{}'.format(i - 13, i))
+                    add_new_var(yin, 'y{}{}'.format(i + 1, i))
+                    add_new_var(yin, 'y{}{}'.format(i + 13, i))
+                    add_new_var(yout, 'y{}{}'.format(i, i - 13))
+                    add_new_var(yout, 'y{}{}'.format(i, i + 1))
+                    add_new_var(yout, 'y{}{}'.format(i, i + 13))
+                elif i % 13 == 12:
+                    add_new_var(yin, 'y{}{}'.format(i - 13, i))
+                    add_new_var(yin, 'y{}{}'.format(i - 1, i))
+                    add_new_var(yin, 'y{}{}'.format(i + 13, i))
+                    add_new_var(yout, 'y{}{}'.format(i, i - 13))
+                    add_new_var(yout, 'y{}{}'.format(i, i + 13))
+                    add_new_var(yout, 'y{}{}'.format(i, i - 1))
+                else:  # for internal nodes of internal nodes
+                    add_new_var(yin, 'y{}{}'.format(i - 13, i))
+                    add_new_var(yin, 'y{}{}'.format(i + 13, i))
+                    add_new_var(yin, 'y{}{}'.format(i - 1, i))
+                    add_new_var(yin, 'y{}{}'.format(i + 1, i))
+                    add_new_var(yout, 'y{}{}'.format(i, i - 13))
+                    add_new_var(yout, 'y{}{}'.format(i, i + 13))
+                    add_new_var(yout, 'y{}{}'.format(i, i - 1))
+                    add_new_var(yout, 'y{}{}'.format(i, i + 1))
+                Yin.append(yin)
+                Yout.append(yout)
 
         # now define constraints
         # 1. for every tile there could be one type or empty
@@ -398,44 +400,45 @@ class Program(object):
         self._model.add_constraint(self._model.sum(self.W[104:117]) == 13)
         self._model.add_constraint(self._model.sum([self.W[i * 13] for i in range(9)]) == 9)
         self._model.add_constraint(self._model.sum([self.W[i * 13 + 12] for i in range(9)]) == 9)
-        # 4. The number of enemies should be less than 0.6 percent of empty space
-        self._model.add_constraint(self._model.sum(self.Em) * 0.6 >=
-                                   self._model.sum(self.E1) + self._model.sum(self.E2) + self._model.sum(self.E3))
-        # 5. the player should be able to reach the key, X graph
-        # 5.1 super source will only go into player node
-        self._model.add_constraint(self._model.sum(Xs) == 1)
-        for i in range(N):
-            self._model.add_constraint(Xs[i] - self.P[i] == 0)
-        # 5.2 the flow will only be pushed into super sink from the key node
-        self._model.add_constraint(self._model.sum(Xt) == 1)
-        for i in range(N):
-            self._model.add_constraint(Xt[i] - self.K[i] == 0)
-        # 5.3 for every internal node there how much in how much out
-        for i in range(N):
-            self._model.add_constraint(self._model.sum(Xin[i]) - self._model.sum(Xout[i]) == 0)
-        # 5.4 for every internal node the wall node will not be used
-        for i in range(N):
-            self._model.add_constraint(self._model.sum(Xin[i]) + self.W[i] <= 1)
-            self._model.add_constraint(self._model.sum(Xout[i]) + self.W[i] <= 1)
-        # 6. the player should be able to reach the door, Y graph
-        # 6.1 super source will only go into player node
-        self._model.add_constraint(self._model.sum(Ys) == 1)
-        for i in range(N):
-            self._model.add_constraint(Ys[i] - self.P[i] == 0)
-        # 6.2 the flow will only be pushed into super sink from the door node
-        self._model.add_constraint(self._model.sum(Yt) == 1)
-        for i in range(N):
-            self._model.add_constraint(Yt[i] - self.G[i] == 0)
-        # 6.3 for every internal node there how much in how much out
-        for i in range(N):
-            self._model.add_constraint(self._model.sum(Yin[i]) - self._model.sum(Yout[i]) == 0)
-        # 6.4 for every internal node the wall node will not be used
-        for i in range(N):
-            self._model.add_constraint(self._model.sum(Yin[i]) + self.W[i] <= 1)
-            self._model.add_constraint(self._model.sum(Yout[i]) + self.W[i] <= 1)
-        # 7 there must be at least one enemy
-        # for i in range(N):
-        #     self._model.add_constraint(self._model.sum(self.E1 + self.E2 + self.E3) >= 1)
+        if not self._is_partial:
+            # 4. The number of enemies should be less than 0.6 percent of empty space
+            self._model.add_constraint(self._model.sum(self.Em) * 0.6 >=
+                                       self._model.sum(self.E1) + self._model.sum(self.E2) + self._model.sum(self.E3))
+            # 5. the player should be able to reach the key, X graph
+            # 5.1 super source will only go into player node
+            self._model.add_constraint(self._model.sum(Xs) == 1)
+            for i in range(N):
+                self._model.add_constraint(Xs[i] - self.P[i] == 0)
+            # 5.2 the flow will only be pushed into super sink from the key node
+            self._model.add_constraint(self._model.sum(Xt) == 1)
+            for i in range(N):
+                self._model.add_constraint(Xt[i] - self.K[i] == 0)
+            # 5.3 for every internal node there how much in how much out
+            for i in range(N):
+                self._model.add_constraint(self._model.sum(Xin[i]) - self._model.sum(Xout[i]) == 0)
+            # 5.4 for every internal node the wall node will not be used
+            for i in range(N):
+                self._model.add_constraint(self._model.sum(Xin[i]) + self.W[i] <= 1)
+                self._model.add_constraint(self._model.sum(Xout[i]) + self.W[i] <= 1)
+            # 6. the player should be able to reach the door, Y graph
+            # 6.1 super source will only go into player node
+            self._model.add_constraint(self._model.sum(Ys) == 1)
+            for i in range(N):
+                self._model.add_constraint(Ys[i] - self.P[i] == 0)
+            # 6.2 the flow will only be pushed into super sink from the door node
+            self._model.add_constraint(self._model.sum(Yt) == 1)
+            for i in range(N):
+                self._model.add_constraint(Yt[i] - self.G[i] == 0)
+            # 6.3 for every internal node there how much in how much out
+            for i in range(N):
+                self._model.add_constraint(self._model.sum(Yin[i]) - self._model.sum(Yout[i]) == 0)
+            # 6.4 for every internal node the wall node will not be used
+            for i in range(N):
+                self._model.add_constraint(self._model.sum(Yin[i]) + self.W[i] <= 1)
+                self._model.add_constraint(self._model.sum(Yout[i]) + self.W[i] <= 1)
+            # 7 there must be at least one enemy
+            # for i in range(N):
+            #     self._model.add_constraint(self._model.sum(self.E1 + self.E2 + self.E3) >= 1)
 
 
 if __name__ == '__main__':

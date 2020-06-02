@@ -1,20 +1,27 @@
-"""This file is for pure gan experiment."""
+"""This file is for gan and lp relaxation experiment."""
 
 import argparse
-import math
 import random
+import shutil
+import os
+import json
+import time
 
-import matplotlib.pyplot as plt
 import numpy as np
 import torch.backends.cudnn as cudnn
 import torch.optim as optim
-import torch.utils.data
-from torch.autograd import Variable
+import torch
+from torchviz import make_dot
 
 import algos.torch.dcgan.dcgan as dcgan
-import os
-import json
+from torch.utils.tensorboard import SummaryWriter
 from utils.TrainLevelHelper import get_lvls, get_integer_lvl
+from mipaal.utils import cplex_utils
+from mipaal.mip_solvers import LPFunction
+from algos.milp.zelda.utils import mip_sol_to_gan_out, gan_out_2_coefs
+from algos.milp.zelda.milp_utils import get_mip_program
+from mipaal.qpthlocal.qp import QPSolvers
+from algos.milp.zelda.program import Program
 
 
 def run(nz,
@@ -34,15 +41,53 @@ def run(nz,
         clamp_upper,
         n_extra_layers,
         gan_experiment,
+        mipaal_experiment,
         adam,
         seed,
         lvl_data):
+    # Now we need to setup lpfunction
+    shutil.rmtree(os.path.join(mipaal_experiment, 'runs'), ignore_errors=True)
+    writer = SummaryWriter(log_dir=os.path.join(mipaal_experiment, 'runs'))
+    models_dir = os.path.join(mipaal_experiment, 'models')
+    os.makedirs(models_dir, exist_ok=True)
+    # Step 1. We translate our cplex model to matrices
+    milp_program = Program(partial=True)
+    cpx = milp_program.get_cplex_prob()  # get the cplex problem from the docplex model
+    cpx.cleanup(epsilon=0.0001)
+    c, G, h, A, b, var_type = cplex_utils.cplex_to_matrices(cpx)
+    # _, inds = sympy.Matrix(A).T.rref()
+    # A = A[np.array(inds)]
+    # b = b[np.array(inds)]
+    #
+    # cpx = get_mip_program()
+    # cpx.cleanup(epsilon=0.0001)
+    # c, G, h, A, b, var_type = cplex_utils.cplex_to_matrices(cpx)
+    if cuda:
+        G = torch.from_numpy(G).float().cuda(gpu_id)
+        h = torch.from_numpy(h).float().cuda(gpu_id)
+        A = torch.from_numpy(A).float().cuda(gpu_id)
+        b = torch.from_numpy(b).float().cuda(gpu_id)
+        Q = 2e-6 * torch.eye(A.shape[1]).cuda(gpu_id)
+        Q = Q.type_as(G).cuda(gpu_id)
+    else:
+        G = torch.from_numpy(G)
+        h = torch.from_numpy(h)
+        A = torch.from_numpy(A)
+        b = torch.from_numpy(b)
+        Q = 2e-6 * torch.eye(A.shape[1])
+        Q = Q.type_as(G)
+    if cuda:
+        lp_function = LPFunction(QPSolvers.PDIPM_BATCHED, verbose=False)
+    else:
+        lp_function = LPFunction(QPSolvers.GUROBI, verbose=False)
+
+
     os.makedirs(gan_experiment, exist_ok=True)
 
     random.seed(seed)
     torch.manual_seed(seed)
 
-    cudnn.benchmark = True
+    cudnn.benchmark = True  # enable cudnn auto-tuner for finding the optimial set of algorithms.
 
     if torch.cuda.is_available() and not cuda:
         print("WARNING: You have a CUDA device, so you should probably run with --cuda")
@@ -112,34 +157,27 @@ def run(nz,
         optimizerG = optim.RMSprop(netG.parameters(), lr=lrG)
 
     for epoch in range(niter):
-        X_train = X_train[torch.randperm(len(X_train))]
+        start_time = time.time()
+        X_train = X_train[torch.randperm(len(X_train))]  # shuffle the training data
 
         ############################
         # (1) Update D network
         ###########################
-        # for p in netD.parameters():  # reset requires_grad
-        #     p.requires_grad = True  # they are set to False below in netG update
-        # for p in netG.parameters():
-        #     p.requires_grad = False
         i = 0
         total_errD_fake = 0
         total_errD_real = 0
         total_errG = 0
-        while i < num_batches:  # len(dataloader):
+        while i < num_batches:
             netD.zero_grad()
             # clamp parameters to a cube
             for p in netD.parameters():
                 p.data.clamp_(clamp_lower, clamp_upper)
-
             data = X_train[i * batch_size:(i + 1) * batch_size]
-
             if cuda:
                 real_cpu = torch.FloatTensor(data).cuda(gpu_id)
             else:
                 real_cpu = torch.FloatTensor(data)
-
             input.resize_as_(real_cpu).copy_(real_cpu)
-
             errD_real = netD(input)
             errD_real.backward(one)
             total_errD_real += errD_real.item()
@@ -147,39 +185,47 @@ def run(nz,
             # train with fake
             noise.resize_(batch_size, nz, 1, 1).normal_(0, 1)
             fake = netG(noise)
-            errD_fake = netD(fake.detach())
+            pred_coefs = gan_out_2_coefs(fake, c.size, gpu_id, cuda)
+            x = lp_function(Q, pred_coefs, G, h, A, b)
+            fake2 = mip_sol_to_gan_out(fake, x)
+            errD_fake = netD(fake2.detach())
             errD_fake.backward(mone)
             total_errD_fake += errD_fake.item()
-
+            # i += 1
             optimizerD.step()
 
             ############################
             # (2) Update G network
             ###########################
             netG.zero_grad()
-
-            errG = netD(fake)
+            errG = netD(fake2)
             errG.backward(one)
             total_errG += errG.item()
             optimizerG.step()
-
             i += 1
+
         average_errG = total_errG / num_batches
         average_errD_fake = total_errD_fake / num_batches
         average_errD_real = total_errD_real / num_batches
 
-        print('[%d/%d] Loss_G: %f Loss_D_real: %f Loss_D_fake %f'
-              % (epoch, niter, average_errG, average_errD_real, average_errD_fake))
+        end_time = time.time()
 
-        if epoch % 10 == 9 or epoch == niter - 1:
+        print('[%d/%d] Loss_G: %f Loss_D_real: %f Loss_D_fake %f; time: [%d]'
+              % (epoch, niter, average_errG, average_errD_real, average_errD_fake, end_time - start_time))
+
+        if epoch % 100 == 99 or epoch == niter - 1:
             netG.eval()
             with torch.no_grad():
                 fake = netG(fixed_noise)
-                im = fake.cpu().numpy()[:, :, :9, :13]
+                pred_coefs = gan_out_2_coefs(fake, c.size, gpu_id, cuda)
+                x = lp_function(Q, pred_coefs, G, h, A, b)
+                fake2 = mip_sol_to_gan_out(fake, x)
+                im = fake2.data[:, :, :9, :13].cpu().numpy()
                 im = np.argmax(im, axis=1)
-            with open('{0}/fake_level_epoch_{1}_{2}.json'.format(gan_experiment, epoch, seed), 'w') as f:
+            with open('{0}/fake_level_epoch_{1}_{2}.json'.format(gan_experiment, epoch, seed), "w") as f:
                 f.write(json.dumps(im[0].tolist()))
             torch.save(netG.state_dict(), '{0}/netG_epoch_{1}_{2}.pth'.format(gan_experiment, epoch, seed))
+            torch.save(netD.state_dict(), '{0}/netD_epoch_{1}_{2}.pth'.format(gan_experiment, epoch, seed))
 
 
 if __name__ == '__main__':
@@ -188,7 +234,7 @@ if __name__ == '__main__':
     parser.add_argument('--ngf', type=int, default=64)
     parser.add_argument('--ndf', type=int, default=64)
     parser.add_argument('--batch_size', type=int, default=50, help='input batch size')
-    parser.add_argument('--niter', type=int, default=55000, help='number of epochs to train for')
+    parser.add_argument('--niter', type=int, default=25000, help='number of epochs to train for')
     parser.add_argument('--lrD', type=float, default=0.0002, help='learning rate for Critic, default=0.00005')
     parser.add_argument('--lrG', type=float, default=0.0002, help='learning rate for Generator, default=0.00005')
     parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam. default=0.5')
@@ -201,6 +247,7 @@ if __name__ == '__main__':
     parser.add_argument('--clamp_upper', type=float, default=0.01)
     parser.add_argument('--n_extra_layers', type=int, default=0, help='Number of extra layers on gen and disc')
     parser.add_argument('--gan_experiment', help='Where to store samples and models')
+    parser.add_argument('--mipaal_experiment', help='Where to store mipaal parameters file')
     parser.add_argument('--adam', action='store_true', help='Whether to use adam (default is rmsprop)')
     parser.add_argument('--seed', type=int, default=999, help='random seed for reproducibility')
     parser.add_argument('--lvl_data', help='Path to the human designed levels.')
@@ -223,6 +270,7 @@ if __name__ == '__main__':
         opt.clamp_upper,
         opt.n_extra_layers,
         opt.gan_experiment,
+        opt.mipaal_experiment,
         opt.adam,
         opt.seed,
         opt.lvl_data)

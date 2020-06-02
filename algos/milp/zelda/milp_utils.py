@@ -290,7 +290,9 @@ def fix_zelda_level(level):
 
         # print(len(list(mdl.iter_variables())))
         # print(len(list(mdl.iter_constraints())))
+
         solution = mdl.solve()
+
         # print(solution)
         # from IPython import embed
         # embed()
