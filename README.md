@@ -1,16 +1,15 @@
-# Combining Optimization with Learning for Procedural Content Generation
+# Video Game Level Repair via Mixed Integer Linear Programming
 
-We study three scenarios:
-
-- Use MILP solver to generate more training data
-
-- Use MILP solver to fix the generated levels 
-
-- Use Mipaal in the GAN
-
-Acknowledgement: We thank our colleagues from ITU university for creating the original levels. We thank Aaron Ferber for proving [MIPaal](https://arxiv.org/abs/1907.05912) code.
-
-Instructions
+Setup Instructions
 - Clone the repo
 - git submodule init update
 - pip install -r requirements.txt
+
+Training a GAN that learns the distribution of *Zelda* levels
+- in the root folder of the project
+- python launchers/zelda_gan_training.py
+
+Generate fixed levels
+- in the root folder of the project
+- python launchers/zelda_gan_generate.py --output_folder=\<path to save the generated levels\> --network_path=\<path to the save generator network\>
+

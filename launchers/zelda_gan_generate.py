@@ -51,12 +51,18 @@ if __name__ == '__main__':
     random.seed(seed)
     torch.manual_seed(seed)
 
-    output_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'zelda_better_gan_no_fix')
-    gan_path = os.path.join(os.path.dirname(__file__), 'zelda_better_gan', 'netG_epoch_9999_999.pth')
+    data_root = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda')
+
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--output_folder', help='the folder name to output levels')
+    parser.add_argument('--network_path', help='the path to the saved generator network')
+    opt = parser.parse_args()
+    output_path = os.path.join(data_root, opt.output_folder)
 
     num_gen = 1000
 
     run(output_path,
-        gan_path,
+        opt.network_path,
         num_gen,
         if_fix)
