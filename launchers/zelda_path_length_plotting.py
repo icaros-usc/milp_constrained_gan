@@ -37,6 +37,8 @@ def run(data_root,
 
     fig, ax = plt.subplots(figsize=(6, 4.5))
     for key in to_stats:
+        # print average path length
+        print('{}: {}'.format(key, np.mean(to_stats[key]['costs'])))
         plt.hist(to_stats[key]['costs'], color=to_stats[key]['color'], edgecolor=to_stats[key]['edgecolor'],
                  alpha=0.7, label=key, density=True, bins=bins)
 
@@ -47,7 +49,6 @@ def run(data_root,
 
     fig.tight_layout()
     plt.savefig('average_cost_analysis.pdf')
-
 
 
 if __name__ == '__main__':
