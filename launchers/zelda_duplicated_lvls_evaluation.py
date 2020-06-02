@@ -73,18 +73,14 @@ def evaluate(lvl):
         for col in range(len(heuristic_key[row])):
             heuristic_key[row][col] = abs(row - goal_key[0]) + abs(col - goal_key[1])
             heuristic_door[row][col] = abs(row - goal_door[0]) + abs(col - goal_door[1])
-    result_key, _ = search(grid, init, goal_key, cost, delta, heuristic_key)
+    result_key, _, _ = search(grid, init, goal_key, cost, delta, heuristic_key)
     if result_key == 'fail':
         return False
 
     # the player should be able to reach the door
-    result_door, _ = search(grid, init, goal_door, cost, delta, heuristic_door)
+    result_door, _, _ = search(grid, init, goal_door, cost, delta, heuristic_door)
     if result_door == 'fail':
         return False
-
-    # the level at least has one enemy
-    # if num_enemy1 + num_enemy2 + num_enemy3 == 0:
-    #    return False
 
     return True
 
@@ -105,15 +101,13 @@ def compute_duplicated_lvls(lvl_lst):
     return num_duplicated, unique_lvls
 
 
-def run():
-    dataroot = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'gan')
-
+def run(data_path):
     num_levels = 0
     num_valid_levels = 0
     all_valid_lvs = []
-    for lvl in os.listdir(dataroot):
+    for lvl in os.listdir(data_path):
         num_levels += 1
-        with open(os.path.join(dataroot, lvl), 'r') as f:
+        with open(os.path.join(data_path, lvl), 'r') as f:
             lvlJson = json.load(f)
             if_valid = evaluate(lvlJson)
 
@@ -129,4 +123,6 @@ def run():
 
 
 if __name__ == '__main__':
-    run()
+    data_root = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda')
+    data_folder = 'zelda_better_gan'
+    run(os.path.join(data_root, data_folder))
