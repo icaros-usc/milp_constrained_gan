@@ -14,7 +14,7 @@ def run(dataroot,
         """If there is no such a folder."""
         os.makedirs(output_path, exist_ok=True)
 
-    sprites_root = os.path.join(os.path.dirname(os.path.dirname(__file__)), '../GVGAI', 'sprites')
+    sprites_root = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'GVGAI', 'sprites')
     sprites_path = {0: 'oryx/floor3.png', 1: 'oryx/orb2.png', 2: 'oryx/gold2.png', 3: 'newset/pacman.png',
                     4: 'oryx/ghost3.png', 5: 'oryx/ghost4.png', 6: 'oryx/ghost5.png', 7: 'oryx/ghost6.png',
                     8: 'newset/cherries2.png', 9: 'oryx/wall3.png'}
@@ -29,7 +29,7 @@ def run(dataroot,
 
 
 if __name__ == '__main__':
-    dataroot = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'pacman', 'plain_gan_text')
-    output_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'pacman', 'plain_gan_visual')
+    dataroot = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'pacman', 'pacman_gan')
+    output_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'pacman', 'pacman_gan_visual')
     run(dataroot,
         output_path)
