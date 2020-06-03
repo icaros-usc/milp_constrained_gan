@@ -46,3 +46,35 @@ def zelda_milp_vars2grid(si, program):
             elif si.get_value(program.P[ind]) == 1:
                 grid[i][j] = 7
     return grid
+
+
+def pacman_gan_output_to_txt(input):
+    grid = [[]]
+    for i in range(31):
+        for j in range(28):
+            if input[i][j] == 0:
+                grid[i].append('+')
+            elif input[i][j] == 1:
+                grid[i].append('0')
+            elif input[i][j] == 2:
+                grid[i].append('.')
+            elif input[i][j] == 3:
+                grid[i].append('A')
+            elif input[i][j] == 4:
+                grid[i].append('1')
+            elif input[i][j] == 5:
+                grid[i].append('2')
+            elif input[i][j] == 6:
+                grid[i].append('3')
+            elif input[i][j] == 7:
+                grid[i].append('4')
+            elif input[i][j] == 8:
+                grid[i].append('f')
+            elif input[i][j] == 9:
+                grid[i].append('w')
+            else:
+                raise NotImplementedError('Can not recognize the index type.')
+        if i < 30:
+            grid.append([])
+
+    return grid
