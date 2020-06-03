@@ -61,7 +61,7 @@ if __name__ == '__main__':
     opt = parser.parse_args()
     output_path = os.path.join(data_root, opt.output_folder)
 
-    num_gen = 1000
+    num_gen = 3
 
     run(output_path,
         opt.network_path,

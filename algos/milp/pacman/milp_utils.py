@@ -247,7 +247,7 @@ def fix_pacman_level(level):
                     objects_in_graph.append((cur_object[i], cur_label == level[r][c]))
             if cur_label in ['+', '0', '.', 'f', 'w']:
                 cost_move = 1
-                cost_change = 1
+                cost_change = 3
             else:
                 cost_move = 10
                 cost_change = 10
@@ -259,16 +259,27 @@ def fix_pacman_level(level):
         # for every node it surrounding nodes will have at most len(surrounding nodes) - 2 walls
         for i in range(n_nodes):
             sur_walls = [W[j] for j in adj[i]]
+            sur_pes = [Pe[j] for j in adj[i]]
+            sur_frs = [Fr[j] for j in adj[i]]
+            sur_pos = [P[j] for j in adj[i]]
             mdl.add_constraint(sum(sur_walls) <= len(adj[i]) - 2 * (F[i] + P[i] + Pe[i] + Fr[i]))
+            mdl.add_constraint(sum(sur_pes) + sum(sur_frs) + sum(sur_pos) >= Pe[i] * 2)
+
+        # there will be at most 4 fruits and 4 power pellets
+        mdl.add_constraint(sum(P) <= 4)
+        mdl.add_constraint(sum(Fr) <= 4)
 
         # there shouldn't be a reachable nodes block
         for i in range(n_nodes):
-            if i % m == m - 1:
-                continue
             if i / m >= n - 1:
                 continue
-            mdl.add_constraint(F[i] + P[i] + Pe[i] + Fr[i] + F[i + 1] + P[i + 1] + Pe[i + 1] + Fr[i + 1]
-                               + F[i + m] + P[i + m] + Pe[i + m] + Fr[i + m] + F[i + m + 1] + P[i + m + 1] + Pe[i + m + 1] + Fr[i + m + 1] <= 3)
+            if i % m == m - 1:
+                mdl.add_constraint(P[i] + Pe[i] + Fr[i] + P[i - m + 1] + Pe[i -m + 1] + Fr[i - m + 1]
+                                   + P[i + m] + Pe[i + m] + Fr[i + m] + P[i + 1] + Pe[
+                                       i + 1] + Fr[i + 1] <= 3)
+                continue
+            mdl.add_constraint(P[i] + Pe[i] + Fr[i] + P[i + 1] + Pe[i + 1] + Fr[i + 1]
+                               + P[i + m] + Pe[i + m] + Fr[i + m] + P[i + m + 1] + Pe[i + m + 1] + Fr[i + m + 1] <= 3)
 
         # print(len(list(mdl.iter_variables())))
         # print(len(list(mdl.iter_constraints())))

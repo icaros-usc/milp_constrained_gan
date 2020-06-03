@@ -79,7 +79,7 @@ index2strJson = json.load(open('pacman_index2str.json', 'r'))
 str2index = {}
 for key in index2strJson:
     str2index[index2strJson[key]] = key
-dataroot = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'pacman', 'mix')
+dataroot = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'pacman', 'asp')
 
 # get all levels and store them in one numpy array
 np_lvls = []
