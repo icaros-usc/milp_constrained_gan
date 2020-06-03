@@ -51,12 +51,19 @@ if __name__ == '__main__':
     random.seed(seed)
     torch.manual_seed(seed)
 
-    output_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'pacman', 'pacman_gan')
-    gan_path = os.path.join(os.path.dirname(__file__), 'default_pacman_samples', 'netG_epoch_24999_999.pth')
+    data_root = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'pacman')
 
-    num_gen = 3
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--output_folder', help='the folder name to output levels')
+    parser.add_argument('--network_path', help='the path to the saved generator network')
+    opt = parser.parse_args()
+    output_path = os.path.join(data_root, opt.output_folder)
+
+    num_gen = 1000
 
     run(output_path,
-        gan_path,
+        opt.network_path,
         num_gen,
         if_fix)
