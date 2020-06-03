@@ -134,9 +134,9 @@ def run(output_path,
             x = lp_function(Q, pred_coefs, G, h, A, b)
             output2 = mip_sol_to_gan_out(output, x)
             im = output2.data[:, :, :9, :13].cpu().numpy()
-            numpyLvl = np.argmax(im, axis=1)
+            numpyLvl = np.argmax(im, axis=1)[0]
             if if_fix:
-                level = zelda_gan_output_to_txt(numpyLvl[0])
+                level = zelda_gan_output_to_txt(numpyLvl)
                 new_level = fix_zelda_level(level)
                 numpyLvl = get_integer_lvl(new_level, str2index)
 

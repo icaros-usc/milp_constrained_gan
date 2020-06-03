@@ -35,9 +35,9 @@ def run(output_path,
             fixed_noise = torch.FloatTensor(1, 32, 1, 1).normal_(0, 1).to(device)
             output = netG(fixed_noise)
             im = output[:, :, :9, :13].cpu().numpy()
-            numpyLvl = np.argmax(im, axis=1)
+            numpyLvl = np.argmax(im, axis=1)[0]
             if if_fix:
-                level = zelda_gan_output_to_txt(numpyLvl[0])
+                level = zelda_gan_output_to_txt(numpyLvl)
                 new_level = fix_zelda_level(level)
                 numpyLvl = get_integer_lvl(new_level, str2index)
 
