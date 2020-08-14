@@ -290,7 +290,7 @@ def fix_zelda_level(level):
 
         # print(len(list(mdl.iter_variables())))
         # print(len(list(mdl.iter_constraints())))
-
+        # mdl.print_information()
         solution = mdl.solve()
 
         # print(solution)

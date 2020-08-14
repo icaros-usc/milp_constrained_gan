@@ -28,7 +28,6 @@ def run(output_path,
 
     netG.load_state_dict(torch.load(gan_path))
     netG.to(device)
-
     with torch.no_grad():
         netG.eval()
         for i in tqdm.tqdm(range(num_gen)):
@@ -54,7 +53,7 @@ if __name__ == '__main__':
     output_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'pacman', 'pacman_gan')
     gan_path = os.path.join(os.path.dirname(__file__), 'default_pacman_samples', 'netG_epoch_24999_999.pth')
 
-    num_gen = 3
+    num_gen = 10
 
     run(output_path,
         gan_path,

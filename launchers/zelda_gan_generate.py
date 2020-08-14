@@ -52,7 +52,7 @@ if __name__ == '__main__':
     torch.manual_seed(seed)
 
     output_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'zelda', 'zelda_better_gan_no_fix')
-    gan_path = os.path.join(os.path.dirname(__file__), 'zelda_better_gan', 'netG_epoch_9999_999.pth')
+    gan_path = os.path.join(os.path.dirname(__file__), 'default_samples', 'netG_epoch_9999_999.pth')
 
     num_gen = 1000
 
