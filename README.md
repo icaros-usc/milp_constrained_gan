@@ -10,7 +10,7 @@
 ### Zelda domain
 Training a GAN that learns the distribution of *Zelda* levels
 - in the root folder of the project
-- python launchers/zelda_gan_training.py --gan_experiment=\<path to save the samples and models\>
+- python launchers/zelda_gan_training.py --gan_experiment=\<path to save the samples and models\> --lvl_data=\<path to human authored levels>\
 - If you have GPUs, you can use --cuda to enable GPUs.
 
 Generate fixed levels
@@ -39,5 +39,6 @@ Visualize the generated levels
 
 
 ### End-to-end training
+**Here the code only works with pytorch==1.2.0**
 - in the root folder of the project
-- python launchers/zelda_gan_partial_lp_end2end_generate.py
+- python launchers/zelda_gan_partial_lp_end2end_generate.py --lvl_data=\<path to human authored levels>\ --gan_experiment=\<path to save the samples and models>\ --mipaal_experiment=\<path to save the mipaal samples and models>\

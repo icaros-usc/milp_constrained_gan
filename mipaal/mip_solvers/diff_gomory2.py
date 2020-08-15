@@ -151,9 +151,9 @@ class MIPFunction(Function):
 
 
 class LPFunction(Function):
-    def __init__(self, verbose=0, *args, **kwargs):
+    def __init__(self, solver, verbose=0, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.qp_function = QPFunction(solver=QPSolvers.GUROBI, verbose=verbose)
+        self.qp_function = QPFunction(solver=solver, verbose=verbose)
 
     # @profile
     def forward(self, Q, p, G, h, A, b):
