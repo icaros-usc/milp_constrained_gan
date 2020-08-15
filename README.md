@@ -2,7 +2,7 @@
 
 ### Setup Instructions
 - Install [CPLEX Optimization Studio and it Python API](https://developer.ibm.com/docloud/blog/2019/07/04/cplex-optimization-studio-for-students-and-academics/)
-    - You need academic version to solve large programs. 
+    - You need full version to solve large programs. (Researchers can use academic version).
 - Unzip the file in a folder
 - pip install -r requirements.txt
 - Add the folder path to your PYTHONPATH
