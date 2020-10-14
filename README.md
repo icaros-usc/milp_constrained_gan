@@ -42,3 +42,18 @@ Visualize the generated levels
 **Here the code only works with pytorch==1.2.0**
 - in the root folder of the project
 - python launchers/zelda_gan_partial_lp_end2end_generate.py --lvl_data=\<path to human authored levels>\ --gan_experiment=\<path to save the samples and models>\ --mipaal_experiment=\<path to save the mipaal samples and models>\
+
+
+### Citing This Work
+If you use this code for scholarly work, please kindly cite our work using the Bibtex snippet belw.
+```
+@inproceedings{zhang2020video,
+  title={Video Game Level Repair via Mixed Integer Linear Programming},
+  author={Zhang, Hejia and Fontaine, Matthew and Hoover, Amy and Togelius, Julian and Dilkina, Bistra and Nikolaidis, Stefanos},
+  booktitle={Proceedings of the AAAI Conference on Artificial Intelligence and Interactive Digital Entertainment},
+  volume={16},
+  number={1},
+  pages={151--158},
+  year={2020}
+}
+```
