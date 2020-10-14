@@ -47,7 +47,7 @@ Visualize the generated levels
 ### Citing This Work
 If you use this code for scholarly work, please kindly cite our work using the Bibtex snippet belw.
 ```
-@inproceedings{zhang2020video,
+@inproceedings{zhang:aiide2020,
   title={Video Game Level Repair via Mixed Integer Linear Programming},
   author={Zhang, Hejia and Fontaine, Matthew and Hoover, Amy and Togelius, Julian and Dilkina, Bistra and Nikolaidis, Stefanos},
   booktitle={Proceedings of the AAAI Conference on Artificial Intelligence and Interactive Digital Entertainment},
