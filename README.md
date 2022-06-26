@@ -48,9 +48,12 @@ Visualize the generated levels
 If you use this code for scholarly work, please kindly cite our work using the Bibtex snippet belw.
 ```
 @inproceedings{zhang:aiide2020,
-  title={On the Importance of Environments for Human-Robot Coordination},
+  title={Video Game Level Repair via Mixed Integer Linear Programming},
   author={Zhang, Hejia and Fontaine, Matthew and Hoover, Amy and Togelius, Julian and Dilkina, Bistra and Nikolaidis, Stefanos},
-  booktitle={Proceedings of Robotics: Science and Systems},
-  year={2021}
+  booktitle={Proceedings of the AAAI Conference on Artificial Intelligence and Interactive Digital Entertainment},
+  volume={16},
+  number={1},
+  pages={151--158},
+  year={2020}
 }
-``
+```
